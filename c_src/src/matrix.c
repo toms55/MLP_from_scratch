@@ -6,15 +6,15 @@
 double** create_matrix(int rows, int cols){
   double** matrix = malloc(rows * sizeof(double*));
 
-  for (int i = 0; i < rows; i++) {
+  for (int i = 0; i < rows; ++i) {
     matrix[i] = malloc(cols * sizeof(double));
   }
 
   return matrix;
 }
 
-void free_matrix(double** matrix, int rows) {
-  for (int i = 0; i < rows; i++) {
+void free_matrix(double** matrix, int rows){
+  for (int i = 0; i < rows; ++i) {
     free(matrix[i]);
   }
 
@@ -22,11 +22,11 @@ void free_matrix(double** matrix, int rows) {
 }
 
 // Operations
-double** matrix_add(double** matrix1, double** matrix2, int rows, int cols) {
+double** matrix_add(double** matrix1, double** matrix2, int rows, int cols){
   double** added_matrix = create_matrix(rows, cols);
 
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
       added_matrix[i][j] = matrix1[i][j] + matrix2[i][j];
     }
   } 
@@ -34,8 +34,53 @@ double** matrix_add(double** matrix1, double** matrix2, int rows, int cols) {
   return added_matrix;
 }
 
-double** matrix_sub(double** A, double** B, int rows, int cols);
-double** matrix_multiply(double** A, double** B, int a_rows, int a_cols, int b_cols);
-double** matrix_transpose(double** A, int rows, int cols);
+double** matrix_sub(double** matrix1, double** matrix2, int rows, int cols){
+  double** subbed_matrix = create_matrix(rows, cols);
 
-double** matrix_scalar_multiply(double** A, double scalar, int rows, int cols);
+    for (int i = 0; i < rows; ++i) {
+      for (int j = 0; j < cols; ++j) {
+        subbed_matrix[i][j] = matrix1[i][j] - matrix2[i][j];
+      }
+    } 
+
+  return subbed_matrix;
+}
+
+double** matrix_multiply(double** matrix1, double** matrix2, int matrix1_rows, int matrix1_cols, int matrix2_cols){
+  double** multiplied_matrix = create_matrix(matrix1_rows, matrix2_cols);
+
+  for (int i = 0; i < matrix1_rows; ++i) {
+    for (int j = 0; j < matrix2_cols; ++j) {
+      int sum = 0;
+
+      for (int k = 0; k < matrix1_cols; ++k) {
+        sum += matrix1[i][k] * matrix2[k][j];
+      }
+      multiplied_matrix[i][j] = sum;
+    }
+  }
+
+  return multiplied_matrix;
+}
+
+double** matrix_transpose(double** matrix, int rows, int cols){
+  double** transposed_matrix = create_matrix(cols, rows);
+
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      transposed_matrix[j][i] = matrix[i][j];
+    }
+  }
+
+  return transposed_matrix;
+}
+
+double** matrix_scalar_multiply(double** matrix, double scalar, int rows, int cols){
+  for (int i = 0; i < rows; ++i){
+    for (int j = 0; j < cols; ++j){
+      matrix[i][j] *= scalar;
+    } 
+  }
+
+  return matrix;
+}
