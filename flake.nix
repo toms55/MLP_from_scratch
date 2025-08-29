@@ -45,7 +45,7 @@
               echo "  - gdb (debugger)"
               echo ""
               echo "To run the Python code: 'python3 your_script.py'"
-              echo "To build the C code: 'cmake . && make'"
+              echo "To build the C code: 'make run'"
               echo "-------------------------------------"
             '';
           };
