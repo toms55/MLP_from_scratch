@@ -20,6 +20,10 @@ lib.create_matrix.restype = DoublePtrPtr
 lib.free_matrix.argtypes = [DoublePtrPtr, ctypes.c_int]
 lib.free_matrix.restype = None
 
+# C: double** create_zero_matrix(int rows, int cols)
+lib.create_zero_matrix.argtypes = [ctypes.c_int, ctypes.c_int]
+lib.create_zero_matrix.restype = DoublePtrPtr
+
 # C: double** matrix_add(double** matrix1, double** matrix2, int rows, int cols)
 lib.matrix_add.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.matrix_add.restype = DoublePtrPtr
@@ -40,56 +44,73 @@ lib.matrix_transpose.restype = DoublePtrPtr
 lib.matrix_scalar_multiply.argtypes = [DoublePtrPtr, ctypes.c_double, ctypes.c_int, ctypes.c_int]
 lib.matrix_scalar_multiply.restype = DoublePtrPtr
 
-def py_list_to_c_matrix(py_matrix):
-    if not isinstance(py_matrix, list) or not all(isinstance(row, list) for row in py_matrix):
-        raise TypeError("Input must be a list of lists.")
-    
-    rows = len(py_matrix)
-    if rows == 0:
-        return None, 0, 0
-    cols = len(py_matrix[0])
-    
-    c_matrix = lib.create_matrix(rows, cols)
-    
-    for i in range(rows):
-        for j in range(cols):
-            c_matrix[i][j] = py_matrix[i][j]
-            
-    return c_matrix, rows, cols
+class Matrix:
+    def __init__(self, c_ptr, rows, cols):
+        self.c_ptr = c_ptr
+        self.rows = rows
+        self.cols = cols
 
-def c_matrix_to_py_list(c_matrix, rows, cols):
-    if not c_matrix:
+    def __repr__(self):
+        return f"Matrix({self.rows}*{self.cols})"
+
+def py_list_to_c_matrix(py_matrix):
+   rows = len(py_matrix)
+   cols = len(py_matrix[0]) if rows > 0 else 0
+   c_matrix = lib.create_matrix(rows, cols)
+
+   for row in range(rows):
+       for col in range(cols):
+           c_matrix[row][col] = py_matrix[row][col]
+   return Matrix(c_matrix, rows, cols)
+
+def c_matrix_to_py_list(c_matrix):
+    if not isinstance(c_matrix, Matrix):
+        raise TypeError("Did not pass a Matrix to c_matrix_to_py_list")
+    if not c_matrix.c_ptr:
         return []
     
     py_matrix = []
-    for i in range(rows):
+    for i in range(c_matrix.rows):
         row_list = []
-        for j in range(cols):
-            row_list.append(c_matrix[i][j])
+        for j in range(c_matrix.cols):
+            row_list.append(c_matrix.c_ptr[i][j])
         py_matrix.append(row_list)
         
     return py_matrix
 
+
 def create_py_matrix(rows, cols):
-    return lib.create_matrix(rows, cols)
+    c_ptr = lib.create_matrix(rows, cols)
+    return Matrix(c_ptr, rows, cols)
 
-def add_matrices(mat1, rows1, cols1, mat2, rows2, cols2):
-    # Add validation if sizes don't match
-    return lib.matrix_add(mat1, mat2, rows1, cols1)
+def create_zero_py_matrix(rows, cols):
+    c_ptr = lib.create_zero_matrix(rows, cols)
+    return Matrix(c_ptr, rows, cols)
 
-def subtract_matrices(mat1, rows1, cols1, mat2, rows2, cols2):
-    return lib.matrix_sub(mat1, mat2, rows1, cols1)
+def add_py_matrices(mat1, mat2):
+    if mat1.rows != mat2.rows or mat1.cols != mat2.cols:
+        raise ValueError("Matrices must have the same dimensions to be added.")
+    c_result_ptr = lib.matrix_add(mat1.c_ptr, mat2.c_ptr, mat1.rows, mat1.cols)
+    return Matrix(c_result_ptr, mat1.rows, mat1.cols)
 
-def multiply_matrices(mat1, mat1_rows, mat1_cols, mat2, mat2_rows, mat2_cols):
-    # Add validation if dimensions don't match
-    return lib.matrix_multiply(mat1, mat2, mat1_rows, mat1_cols, mat2_cols)
+def subtract_py_matrices(mat1, mat2):
+    if mat1.rows != mat2.rows or mat1.cols != mat2.cols:
+        raise ValueError("Matrices must have the same dimensions to be subtracted.")
+    c_result_ptr = lib.matrix_sub(mat1.c_ptr, mat2.c_ptr, mat1.rows, mat1.cols)
+    return Matrix(c_result_ptr, mat1.rows, mat1.cols)
 
-def transpose_matrix(mat, rows, cols):
-    return lib.matrix_transpose(mat, rows, cols)
+def multiply_py_matrices(mat1, mat2):
+    if mat1.cols != mat2.rows:
+        raise ValueError("Matrix dimensions are not compatible for multiplication.")
+    c_result_ptr = lib.matrix_multiply(mat1.c_ptr, mat2.c_ptr, mat1.rows, mat1.cols, mat2.cols)
+    return Matrix(c_result_ptr, mat1.rows, mat2.cols)
 
-def scalar_multiply_matrix(mat, scalar, rows, cols):
-    # Note: This function modifies the matrix in place
-    lib.matrix_scalar_multiply(mat, scalar, rows, cols)
+def transpose_py_matrix(mat):
+    c_result_ptr = lib.matrix_transpose(mat.c_ptr, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.cols, mat.rows)
 
-def free_py_matrix(mat, rows):
-    lib.free_matrix(mat, rows)
+def scalar_multiply_py_matrix(mat, scalar):
+    lib.matrix_scalar_multiply(mat.c_ptr, scalar, mat.rows, mat.cols)
+
+def free_py_matrix(mat):
+    lib.free_matrix(mat.c_ptr, mat.rows)

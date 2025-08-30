@@ -17,7 +17,7 @@ $(LIBOUT): $(OBJ)
 	mkdir -p $(OUTDIR)
 	$(CC) -shared -lm -o $@ $^
 
-# Build test program (links object files instead of shared lib to keep it simple)
+# Build test program
 test: $(OBJ) $(TEST_SRC)
 	mkdir -p $(OUTDIR)
 	$(CC) $(CFLAGS) -o $(TEST_OUT) $(TEST_SRC) $(OBJ) -lm
