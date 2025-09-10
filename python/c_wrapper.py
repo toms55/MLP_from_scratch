@@ -44,6 +44,13 @@ lib.matrix_transpose.restype = DoublePtrPtr
 lib.matrix_scalar_multiply.argtypes = [DoublePtrPtr, ctypes.c_double, ctypes.c_int, ctypes.c_int]
 lib.matrix_scalar_multiply.restype = DoublePtrPtr
 
+# C: double** sigmoid(double x)
+lib.sigmoid.argtypes = [ctypes.c_double]
+lib.sigmoid.restype = ctypes.c_double
+
+lib.sigmoid_derivative.argtypes = [ctypes.c_double]
+lib.sigmoid_derivative.restype = ctypes.c_double
+
 class Matrix:
     def __init__(self, c_ptr, rows, cols):
         self.c_ptr = c_ptr
@@ -114,3 +121,9 @@ def scalar_multiply_py_matrix(mat, scalar):
 
 def free_py_matrix(mat):
     lib.free_matrix(mat.c_ptr, mat.rows)
+    
+def py_sigmoid(x):
+    return lib.sigmoid(x)
+
+def py_sigmoid_derivative(x):
+    return lib.sigmoid_derivative(x)

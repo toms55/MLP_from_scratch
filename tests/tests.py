@@ -11,7 +11,9 @@ from c_wrapper import (
     transpose_py_matrix,
     scalar_multiply_py_matrix,
     free_py_matrix,
-    create_zero_py_matrix
+    create_zero_py_matrix,
+    py_sigmoid,
+    py_sigmoid_derivative
 )
 
 if __name__ == "__main__":
@@ -48,6 +50,12 @@ if __name__ == "__main__":
         
         free_py_matrix(c_sum_mat)
 
+        print("Testing Sigmoid")
+        print(f"{py_sigmoid(3)} should equal 0.95257")
+
+        print("Testing Sigmoid Derivative")
+        print(f"{py_sigmoid_derivative(3)} should equal 0.04517665973")
+
     finally:
         if c_mat1:
             free_py_matrix(c_mat1)
@@ -57,5 +65,3 @@ if __name__ == "__main__":
             free_py_matrix(c_result)
         if c_zero_mat:
             free_py_matrix(c_zero_mat)
-
-
