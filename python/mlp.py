@@ -30,3 +30,24 @@ class MLP:
             c_wrapper.free_py_matrix(w)
         for b in self.biases:
             c_wrapper.free_py_matrix(b)
+
+    def forward(self, layer_index: int, X: c_wrapper.Matrix):
+        """
+        Compute the forward pass between two layers
+        """
+
+        weights = self.weights[layer_index]
+        biases = self.biases[layer_index]
+
+        input = c_wrapper.add_py_matrices(c_wrapper.multiply_py_matrices(weights, X), biases) 
+
+        if self.activation == "Sigmoid":
+            activated_matrix = c_wrapper.py_sigmoid(input)
+        else:
+            raise "The activation function {self.activation} has not been implemented"
+
+        c_wrapper.free_py_matrix(input)
+
+        return activated_matrix
+
+    
