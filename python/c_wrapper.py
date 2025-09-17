@@ -1,5 +1,6 @@
 import ctypes
 import os
+import numpy as np
 
 lib_path = os.path.join(os.path.dirname(__file__), '..', 'build', 'libmlp.so')
 
@@ -127,3 +128,31 @@ def py_sigmoid(x):
 
 def py_sigmoid_derivative(x):
     return lib.sigmoid_derivative(x)
+
+def from_numpy(np_array: np.ndarray) -> Matrix:
+    if not isinstance(np_array, np.ndarray):
+        raise TypeError("Input must be a NumPy array.")
+    
+    # Ensure the data type is float64 (c_double)
+    np_array = np_array.astype(np.float64)
+
+    rows, cols = np_array.shape
+    c_mat_ptr = lib.create_matrix(rows, cols)
+
+    for r in range(rows):
+        for c in range(cols):
+            c_mat_ptr[r][c] = np_array[r, c]
+
+    return Matrix(c_mat_ptr, rows, cols)
+
+def to_numpy(c_matrix: Matrix) -> np.ndarray:
+    if not isinstance(c_matrix, Matrix):
+        raise TypeError("Input must be a Matrix object.")
+
+    np_array = np.empty((c_matrix.rows, c_matrix.cols), dtype=np.float64)
+    
+    for r in range(c_matrix.rows):
+        for c in range(c_matrix.cols):
+            np_array[r, c] = c_matrix.c_ptr[r][c]
+            
+    return np_array
