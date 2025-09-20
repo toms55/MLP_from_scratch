@@ -53,6 +53,11 @@ lib.matrix_sigmoid.restype = DoublePtrPtr
 lib.matrix_sigmoid_derivative.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.matrix_sigmoid_derivative.restype = DoublePtrPtr
 
+
+# C: double mean_squared_error(double* y_true, double* y_pred, int size){
+lib.mean_squared_error.argtypes = [DoublePtr, DoublePtr, ctypes.c_int]
+lib.mean_squared_error.restype = ctypes.c_double
+
 class Matrix:
     def __init__(self, c_ptr, rows, cols):
         self.c_ptr = c_ptr
@@ -125,10 +130,17 @@ def free_py_matrix(mat):
     lib.free_matrix(mat.c_ptr, mat.rows)
     
 def py_sigmoid(mat):
-    return lib.matrix_sigmoid(mat.c_ptr, mat.rows, mat.cols)
+    c_result_ptr = lib.matrix_sigmoid(mat.c_ptr, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.rows, mat.cols)
 
 def py_sigmoid_derivative(mat):
-    return lib.matrix_sigmoid_derivative(mat.c_ptr, mat.rows, mat.cols)
+    c_result_ptr = lib.matrix_sigmoid_derivative(mat.c_ptr, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.rows, mat.cols)
+
+def py_mean_squared_error(y_true: list, y_pred: list, size: int):
+    y_true = py_list_to_c_matrix(y_true)
+    y_pred = py_list_to_c_matrix(y_pred)
+    return lib.mean_squared_error(y_true, y_pred, size)
 
 def from_numpy(np_array: np.ndarray) -> Matrix:
     if not isinstance(np_array, np.ndarray):
@@ -157,3 +169,4 @@ def to_numpy(c_matrix: Matrix) -> np.ndarray:
             np_array[r, c] = c_matrix.c_ptr[r][c]
             
     return np_array
+

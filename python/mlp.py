@@ -31,7 +31,7 @@ class MLP:
         for b in self.biases:
             c_wrapper.free_py_matrix(b)
 
-    def forward(self, layer_index: int, X: c_wrapper.Matrix):
+    def forward_pass(self, layer_index: int, X: c_wrapper.Matrix):
         """
         Compute the forward pass between two layers
         """
@@ -50,4 +50,5 @@ class MLP:
 
         return activated_matrix
 
-    
+    def backward_pass():
+        pass

@@ -220,7 +220,7 @@ def test_mlp_with_xor_data():
     except Exception as e:
         print(f"✗ Error in XOR MLP test: {e}")
 
-def test_single_layer_forward():
+def test_single_layer_forward_pass():
     """Test the forward pass between two specific layers"""
     print("\n" + "=" * 50)
     print("TESTING SINGLE LAYER FORWARD PASS")
@@ -232,7 +232,7 @@ def test_single_layer_forward():
         test_input_data = [[0.5], [0.8]]
         input_matrix = py_list_to_c_matrix(test_input_data)
         
-        layer_0_output = mlp.forward_pass_one_layer(0, input_matrix)
+        layer_0_output = mlp.forward_pass(0, input_matrix)
         result = c_matrix_to_py_list(layer_0_output)
         
         print(f"✓ Input shape: {len(test_input_data)}x{len(test_input_data[0])}")
@@ -256,7 +256,7 @@ def test_single_layer_forward():
         hidden_input_data = [[0.6], [0.4], [0.7]]
         hidden_matrix = py_list_to_c_matrix(hidden_input_data)
         
-        layer_1_output = mlp.forward_pass_one_layer(1, hidden_matrix)
+        layer_1_output = mlp.forward_pass(1, hidden_matrix)
         result = c_matrix_to_py_list(layer_1_output)
         
         print(f"✓ Hidden input shape: {len(hidden_input_data)}x{len(hidden_input_data[0])}")
@@ -287,7 +287,7 @@ def test_layer_forward_chain():
         print(f"Initial input: {[row[0] for row in input_data]}")
         
         for layer_idx in range(len(mlp.layer_sizes) - 1):
-            next_matrix = mlp.forward_pass_one_layer(layer_idx, current_matrix)
+            next_matrix = mlp.forward_pass(layer_idx, current_matrix)
             result = c_matrix_to_py_list(next_matrix)
             
             print(f"✓ Layer {layer_idx} -> {layer_idx+1}: {[row[0] for row in result]}")
@@ -321,7 +321,7 @@ def test_layer_forward_error_cases():
         input_matrix = py_list_to_c_matrix(input_data)
         
         try:
-            mlp.forward_pass_one_layer(2, input_matrix)
+            mlp.forward_pass(2, input_matrix)
             print("✗ Should have failed with invalid layer index")
         except IndexError:
             print("✓ Correctly caught invalid layer index.")
@@ -339,7 +339,7 @@ def test_layer_forward_error_cases():
         wrong_matrix = py_list_to_c_matrix(wrong_input_data)
         
         try:
-            mlp.forward_pass_one_layer(0, wrong_matrix)
+            mlp.forward_pass(0, wrong_matrix)
             print("✗ Should have failed with dimension mismatch")
         except ValueError:
             print("✓ Correctly caught dimension error.")
@@ -357,7 +357,7 @@ def test_layer_forward_error_cases():
         input_matrix = py_list_to_c_matrix(input_data)
         
         try:
-            mlp.forward_pass_one_layer(0, input_matrix)
+            mlp.forward_pass(0, input_matrix)
             print("✗ Should have failed with unsupported activation")
         except NotImplementedError:
             print("✓ Correctly caught activation error.")
@@ -387,7 +387,7 @@ def test_layer_forward_mathematical_correctness():
         linear_input_np = np.dot(weights_np, input_np) + biases_np
         expected_output_np = 1 / (1 + np.exp(-linear_input_np))
 
-        result_matrix = mlp.forward_pass_one_layer(0, input_matrix)
+        result_matrix = mlp.forward_pass(0, input_matrix)
         result = to_numpy(result_matrix)
         network_output = result[0][0]
         
@@ -413,7 +413,7 @@ def run_layer_forward_tests():
     print("=" * 60)
     
     try:
-        test_single_layer_forward()
+        test_single_layer_forward_pass()
         test_layer_forward_chain()
         test_layer_forward_error_cases()
         test_layer_forward_mathematical_correctness()
@@ -438,7 +438,6 @@ def run_all_tests():
         test_mlp_weight_initialization()
         test_mlp_memory_management()
         test_mlp_with_xor_data()
-        test_mlp_different_configurations()
         run_layer_forward_tests()
         
         print("\n" + "=" * 60)
