@@ -53,7 +53,6 @@ lib.matrix_sigmoid.restype = DoublePtrPtr
 lib.matrix_sigmoid_derivative.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.matrix_sigmoid_derivative.restype = DoublePtrPtr
 
-
 # C: double mean_squared_error(double* y_true, double* y_pred, int size){
 lib.mean_squared_error.argtypes = [DoublePtr, DoublePtr, ctypes.c_int]
 lib.mean_squared_error.restype = ctypes.c_double
