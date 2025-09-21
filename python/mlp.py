@@ -60,7 +60,7 @@ class MLP:
     def backward_pass(self, X: c_wrapper.Matrix, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
         if self.loss == "MSE":
             diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
-            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 2 / y_true.rows)
+            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 1 / y_true.rows)
             c_wrapper.free_py_matrix(diff)
         else:
             raise ValueError(f"{self.loss} has not been defined yet.")
