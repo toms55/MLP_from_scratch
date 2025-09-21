@@ -59,6 +59,7 @@ class MLP:
 
     def backward_pass(self, X: c_wrapper.Matrix, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
         if self.loss == "MSE":
+            # derivative = 1/N(y_pred - y_true)
             diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
             initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 1 / y_true.rows)
             c_wrapper.free_py_matrix(diff)
@@ -73,7 +74,7 @@ class MLP:
             activations = self.activations[layer_index + 1]
             prev_activation = self.activations[layer_index]
             
-            activation_derivative = c_wrapper.py_sigmoid_derivative(activations)
+            activation_derivative = c_wrapper.py_sigmoid_derivative(activations) # make this conditional based on self.activation
 
             if layer_index == len(self.weights) - 1:
                 error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
@@ -112,3 +113,26 @@ class MLP:
             output_error = error_signal
 
         c_wrapper.free_py_matrix(output_error)
+
+    def train_model(self, X: np.ndarray, y: np.ndarray, epochs: int):
+        X = c_wrapper.from_numpy(X)
+        y = c_wrapper.from_numpy(y)
+
+        for epoch in range(epochs):
+            print(f"Training epoch {epoch}\n")
+
+            y_pred = self.forward_pass(X)
+            
+            loss = c_wrapper.py_mean_squared_error(y, y_pred)
+            print(f"This epoch's loss is {loss:.6f}")
+
+            self.backwards_pass(self, X, y, y_pred)
+
+        print("Training Complete")
+
+    def predict(self, X: np.ndarray):
+        X = c_wrapper.from_numpy
+        y_pred = self.forward_pass(X)
+        prediction = c_wrapper.to_numpy(y_pred)
+
+        return prediction

@@ -147,7 +147,8 @@ def py_sigmoid_derivative(mat):
     c_result_ptr = lib.matrix_sigmoid_derivative(mat.c_ptr, mat.rows, mat.cols)
     return Matrix(c_result_ptr, mat.rows, mat.cols)
 
-def py_mean_squared_error(y_true: list, y_pred: list, size: int):
+def py_mean_squared_error(y_true: list, y_pred: list):
+    size = y_true.rows * y_true.cols
     return lib.mean_squared_error(y_true.c_ptr, y_pred.c_ptr, size)
 
 def from_numpy(np_array: np.ndarray) -> Matrix:
