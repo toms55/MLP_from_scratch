@@ -75,6 +75,18 @@ double** matrix_multiply(double** matrix1, double** matrix2, int matrix1_rows, i
   return multiplied_matrix;
 }
 
+double** matrix_hadamard(double** matrix1, double** matrix2, int matrix1_rows, int matrix2_cols){
+  double** hadamard_matrix = create_matrix(matrix1_rows, matrix2_cols);
+
+  for (int i = 0; i < matrix1_rows; ++i) {
+    for (int j = 0; j < matrix2_cols; ++j) {
+      hadamard_matrix[i][j] = matrix1[i][j] * matrix2[i][j];
+    }  
+  }
+
+  return hadamard_matrix;
+}
+
 double** matrix_transpose(double** matrix, int rows, int cols){
   double** transposed_matrix = create_matrix(cols, rows);
 

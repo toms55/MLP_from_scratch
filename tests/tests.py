@@ -21,6 +21,7 @@ from c_wrapper import (
     to_numpy,
     py_sigmoid,
     py_sigmoid_derivative,
+    py_mean_squared_error
 )
 
 def close_enough(a, b, tolerance=1e-6):
@@ -816,41 +817,479 @@ def test_seed_reproducibility():
         print(f"✗ Error in seed reproducibility test: {e}")
         traceback.print_exc()
 
-def test_backward_pass_stub():
-    """Test backward pass implementation (if available)"""
+def test_backward_pass_comprehensive():
+    """Comprehensive test of backward pass implementation"""
     print("\n" + "=" * 50)
-    print("TESTING BACKWARD PASS (if implemented)")
+    print("TESTING BACKWARD PASS IMPLEMENTATION")
     print("=" * 50)
     
     try:
         mlp = MLP([2, 3, 1], seed=42)
         
-        # Check if backward_pass method exists and is implemented
-        if hasattr(mlp, 'backward_pass'):
-            print("✓ backward_pass method exists")
+        if not hasattr(mlp, 'backward_pass'):
+            print("⚠ backward_pass method not found - skipping tests")
+            del mlp
+            return
+        
+        print("✓ backward_pass method exists")
+        
+        # Test 1: Basic functionality with valid inputs
+        print("\nTest 1: Basic backward pass functionality")
+        try:
+            X = py_list_to_c_matrix([[1.0], [0.5]])
+            y_true = py_list_to_c_matrix([[0.8]])
             
-            # Test with simple XOR-like data
-            X = py_list_to_c_matrix([[1.0], [0.0]])
-            y = py_list_to_c_matrix([[1.0]])
+            # Perform forward pass first to populate activations
+            y_pred_matrix = mlp.forward_pass(X)
             
-            try:
-                # This will likely fail if not fully implemented
-                mlp.backward_pass(X, y)
-                print("✓ backward_pass executed without errors")
-            except NotImplementedError:
-                print("⚠ backward_pass not fully implemented (NotImplementedError)")
-            except Exception as e:
-                print(f"⚠ backward_pass implementation issue: {e}")
+            # Store weights and biases before backward pass for comparison
+            weights_before = []
+            biases_before = []
+            for i in range(len(mlp.weights)):
+                w_before = to_numpy(mlp.weights[i]).copy()
+                b_before = to_numpy(mlp.biases[i]).copy()
+                weights_before.append(w_before)
+                biases_before.append(b_before)
+            
+            # Perform backward pass
+            mlp.backward_pass(X, y_true, y_pred_matrix)
+            print("✓ Basic backward pass completed without errors")
+            
+            # Check if weights and biases were updated
+            weights_changed = False
+            biases_changed = False
+            
+            for i in range(len(mlp.weights)):
+                w_after = to_numpy(mlp.weights[i])
+                b_after = to_numpy(mlp.biases[i])
+                
+                if not np.allclose(weights_before[i], w_after, atol=1e-10):
+                    weights_changed = True
+                    print(f"✓ Layer {i} weights were updated")
+                else:
+                    print(f"⚠ Layer {i} weights unchanged")
+                
+                if not np.allclose(biases_before[i], b_after, atol=1e-10):
+                    biases_changed = True
+                    print(f"✓ Layer {i} biases were updated")
+                else:
+                    print(f"⚠ Layer {i} biases unchanged")
+            
+            if weights_changed and biases_changed:
+                print("✓ Backward pass successfully updated parameters")
+            else:
+                print("⚠ Some parameters may not have been updated")
             
             free_py_matrix(X)
-            free_py_matrix(y)
-        else:
-            print("⚠ backward_pass method not found")
+            free_py_matrix(y_true)
+            free_py_matrix(y_pred_matrix)
+            
+        except Exception as e:
+            print(f"✗ Error in basic backward pass test: {e}")
+            traceback.print_exc()
         
         del mlp
         
     except Exception as e:
-        print(f"✗ Error in backward pass test: {e}")
+        print(f"✗ Error in backward pass comprehensive test setup: {e}")
+
+def test_backward_pass_gradient_descent():
+    """Test that backward pass actually improves the network"""
+    print("\n" + "=" * 50)
+    print("TESTING BACKWARD PASS GRADIENT DESCENT")
+    print("=" * 50)
+    
+    try:
+        # Test with XOR problem - should improve over iterations
+        mlp = MLP([2, 4, 1], activation="Sigmoid", loss="MSE", learning_rate=0.5, seed=42)
+        
+        if not hasattr(mlp, 'backward_pass'):
+            print("⚠ backward_pass method not found - skipping gradient descent test")
+            del mlp
+            return
+        
+        # XOR training data
+        training_data = [
+            ([[0.0], [0.0]], [[0.0]]),
+            ([[0.0], [1.0]], [[1.0]]),
+            ([[1.0], [0.0]], [[1.0]]),
+            ([[1.0], [1.0]], [[0.0]])
+        ]
+        
+        print("Testing gradient descent on XOR problem:")
+        print("Training data:")
+        for i, (inputs, targets) in enumerate(training_data):
+            print(f"  {[x[0] for x in inputs]} -> {targets[0][0]}")
+        
+        # Calculate initial loss
+        initial_losses = []
+        for inputs, targets in training_data:
+            X = py_list_to_c_matrix(inputs)
+            y_true = py_list_to_c_matrix(targets)
+            y_pred = mlp.forward_pass(X)
+            
+            y_true_np = to_numpy(y_true)
+            y_pred_np = to_numpy(y_pred)
+            loss = np.mean((y_true_np - y_pred_np) ** 2)
+            initial_losses.append(loss)
+            
+            free_py_matrix(X)
+            free_py_matrix(y_true)
+            free_py_matrix(y_pred)
+        
+        initial_avg_loss = np.mean(initial_losses)
+        print(f"\nInitial average loss: {initial_avg_loss:.6f}")
+        
+        # Train for several epochs
+        num_epochs = 10
+        for epoch in range(num_epochs):
+            epoch_losses = []
+            
+            for inputs, targets in training_data:
+                X = py_list_to_c_matrix(inputs)
+                y_true = py_list_to_c_matrix(targets)
+                
+                # Forward pass
+                y_pred = mlp.forward_pass(X)
+                
+                # Calculate loss
+                y_true_np = to_numpy(y_true)
+                y_pred_np = to_numpy(y_pred)
+                loss = np.mean((y_true_np - y_pred_np) ** 2)
+                epoch_losses.append(loss)
+                
+                # Backward pass
+                try:
+                    mlp.backward_pass(X, y_true, y_pred)
+                except Exception as e:
+                    print(f"✗ Backward pass failed at epoch {epoch}: {e}")
+                    free_py_matrix(X)
+                    free_py_matrix(y_true)
+                    free_py_matrix(y_pred)
+                    del mlp
+                    return
+                
+                free_py_matrix(X)
+                free_py_matrix(y_true)
+                free_py_matrix(y_pred)
+            
+            avg_loss = np.mean(epoch_losses)
+            if epoch % 2 == 0:  # Print every 2nd epoch
+                print(f"Epoch {epoch}: Average loss = {avg_loss:.6f}")
+        
+        final_avg_loss = np.mean(epoch_losses)
+        print(f"\nFinal average loss: {final_avg_loss:.6f}")
+        
+        # Check if loss decreased
+        if final_avg_loss < initial_avg_loss:
+            improvement = ((initial_avg_loss - final_avg_loss) / initial_avg_loss) * 100
+            print(f"✓ Loss improved by {improvement:.1f}%")
+            
+            if improvement > 10:  # Significant improvement
+                print("✓ Significant improvement - gradient descent is working")
+            else:
+                print("⚠ Small improvement - gradient descent may have issues")
+        else:
+            print("✗ Loss did not improve - gradient descent is not working")
+        
+        # Test final predictions
+        print("\nFinal predictions:")
+        for inputs, targets in training_data:
+            X = py_list_to_c_matrix(inputs)
+            y_pred = mlp.forward_pass(X)
+            y_pred_np = to_numpy(y_pred)
+            
+            input_vals = [x[0] for x in inputs]
+            target_val = targets[0][0]
+            pred_val = y_pred_np[0, 0]
+            
+            print(f"  {input_vals} -> {pred_val:.3f} (target: {target_val})")
+            
+            free_py_matrix(X)
+            free_py_matrix(y_pred)
+        
+        del mlp
+        
+    except Exception as e:
+        print(f"✗ Error in gradient descent test: {e}")
+        traceback.print_exc()
+
+def test_backward_pass_mathematical_correctness():
+    """Test mathematical correctness of backward pass gradients"""
+    print("\n" + "=" * 50)
+    print("TESTING BACKWARD PASS MATHEMATICAL CORRECTNESS")
+    print("=" * 50)
+    
+    try:
+        # Use simple single-layer network for manual verification
+        mlp = MLP([2, 1], activation="Sigmoid", loss="MSE", learning_rate=0.1, seed=42)
+        
+        if not hasattr(mlp, 'backward_pass'):
+            print("⚠ backward_pass method not found - skipping mathematical test")
+            del mlp
+            return
+        
+        print("Testing single-layer network gradient calculation:")
+        
+        # Simple test case
+        X = py_list_to_c_matrix([[1.0], [0.5]])
+        y_true = py_list_to_c_matrix([[0.8]])
+        
+        # Get initial parameters
+        w_before = to_numpy(mlp.weights[0]).copy()
+        b_before = to_numpy(mlp.biases[0]).copy()
+        x_np = to_numpy(X)
+        y_true_np = to_numpy(y_true)
+        
+        print(f"Input: {x_np.flatten()}")
+        print(f"Target: {y_true_np.flatten()}")
+        print(f"Initial weights: {w_before.flatten()}")
+        print(f"Initial bias: {b_before.flatten()}")
+        
+        # Forward pass to get prediction and activations
+        y_pred = mlp.forward_pass(X)
+        y_pred_np = to_numpy(y_pred)
+        
+        print(f"Prediction: {y_pred_np.flatten()}")
+        print(f"Loss: {np.mean((y_true_np - y_pred_np) ** 2):.6f}")
+        
+        # Manual gradient calculation for verification
+        # For MSE loss and sigmoid activation:
+        # dL/dw = (y_pred - y_true) * sigmoid'(z) * x
+        # dL/db = (y_pred - y_true) * sigmoid'(z)
+        
+        z = np.dot(w_before, x_np) + b_before  # Linear input to sigmoid
+        sigmoid_z = 1 / (1 + np.exp(-z))  # Should equal y_pred
+        sigmoid_prime_z = sigmoid_z * (1 - sigmoid_z)  # Sigmoid derivative
+        
+        error = y_pred_np - y_true_np  # Loss derivative w.r.t. output
+        
+        # Expected gradients
+        expected_dw = error * sigmoid_prime_z * x_np.T
+        expected_db = error * sigmoid_prime_z
+        
+        print(f"\nExpected weight gradient: {expected_dw.flatten()}")
+        print(f"Expected bias gradient: {expected_db.flatten()}")
+        
+        # Perform backward pass
+        mlp.backward_pass(X, y_true, y_pred)
+        
+        # Get updated parameters
+        w_after = to_numpy(mlp.weights[0])
+        b_after = to_numpy(mlp.biases[0])
+        
+        # Calculate actual gradients from parameter changes
+        actual_dw = (w_before - w_after) / mlp.learning_rate
+        actual_db = (b_before - b_after) / mlp.learning_rate
+        
+        print(f"\nActual weight gradient: {actual_dw.flatten()}")
+        print(f"Actual bias gradient: {actual_db.flatten()}")
+        
+        # Compare gradients
+        if np.allclose(expected_dw, actual_dw, atol=1e-6):
+            print("✓ Weight gradients are mathematically correct")
+        else:
+            print("✗ Weight gradients differ from expected values")
+            print(f"  Difference: {np.abs(expected_dw - actual_dw).max()}")
+        
+        if np.allclose(expected_db, actual_db, atol=1e-6):
+            print("✓ Bias gradients are mathematically correct")
+        else:
+            print("✗ Bias gradients differ from expected values")
+            print(f"  Difference: {np.abs(expected_db - actual_db).max()}")
+        
+        free_py_matrix(X)
+        free_py_matrix(y_true)
+        free_py_matrix(y_pred)
+        del mlp
+        
+    except Exception as e:
+        print(f"✗ Error in mathematical correctness test: {e}")
+        traceback.print_exc()
+
+def test_backward_pass_error_handling():
+    """Test error handling in backward pass"""
+    print("\n" + "=" * 50)
+    print("TESTING BACKWARD PASS ERROR HANDLING")
+    print("=" * 50)
+    
+    try:
+        mlp = MLP([2, 3, 1], seed=42)
+        
+        if not hasattr(mlp, 'backward_pass'):
+            print("⚠ backward_pass method not found - skipping error handling test")
+            del mlp
+            return
+        
+        print("Test 1: Backward pass without forward pass")
+        try:
+            X = py_list_to_c_matrix([[1.0], [0.5]])
+            y_true = py_list_to_c_matrix([[0.8]])
+            y_pred = py_list_to_c_matrix([[0.3]])  # Fake prediction
+            
+            # This should fail because activations weren't set by forward pass
+            mlp.backward_pass(X, y_true, y_pred)
+            print("⚠ Backward pass succeeded without forward pass (may be issue)")
+            
+            free_py_matrix(X)
+            free_py_matrix(y_true)
+            free_py_matrix(y_pred)
+            
+        except Exception as e:
+            print(f"✓ Correctly caught error without forward pass: {type(e).__name__}")
+        
+        print("\nTest 2: Dimension mismatch in targets")
+        try:
+            X = py_list_to_c_matrix([[1.0], [0.5]])
+            y_true = py_list_to_c_matrix([[0.8], [0.3]])  # Wrong dimensions
+            y_pred = mlp.forward_pass(X)
+            
+            mlp.backward_pass(X, y_true, y_pred)
+            print("⚠ Backward pass succeeded with wrong target dimensions")
+            
+            free_py_matrix(X)
+            free_py_matrix(y_true)
+            free_py_matrix(y_pred)
+            
+        except Exception as e:
+            print(f"✓ Correctly caught dimension mismatch: {type(e).__name__}")
+        
+        print("\nTest 3: Unsupported loss function")
+        try:
+            mlp_wrong_loss = MLP([2, 3, 1], loss="CrossEntropy", seed=42)
+            
+            if hasattr(mlp_wrong_loss, 'backward_pass'):
+                X = py_list_to_c_matrix([[1.0], [0.5]])
+                y_true = py_list_to_c_matrix([[0.8]])
+                y_pred = mlp_wrong_loss.forward_pass(X)
+                
+                mlp_wrong_loss.backward_pass(X, y_true, y_pred)
+                print("⚠ Backward pass succeeded with unsupported loss")
+                
+                free_py_matrix(X)
+                free_py_matrix(y_true)
+                free_py_matrix(y_pred)
+            
+            del mlp_wrong_loss
+            
+        except Exception as e:
+            print(f"✓ Correctly caught unsupported loss function: {type(e).__name__}")
+        
+        print("\nTest 4: Extreme values")
+        try:
+            X = py_list_to_c_matrix([[1000.0], [-1000.0]])
+            y_true = py_list_to_c_matrix([[0.5]])
+            y_pred = mlp.forward_pass(X)
+            
+            mlp.backward_pass(X, y_true, y_pred)
+            
+            # Check if parameters are still finite
+            params_finite = True
+            for i, (w, b) in enumerate(zip(mlp.weights, mlp.biases)):
+                w_np = to_numpy(w)
+                b_np = to_numpy(b)
+                if not (np.isfinite(w_np).all() and np.isfinite(b_np).all()):
+                    params_finite = False
+                    print(f"✗ Layer {i} parameters became non-finite")
+            
+            if params_finite:
+                print("✓ Parameters remain finite with extreme inputs")
+            
+            free_py_matrix(X)
+            free_py_matrix(y_true)
+            free_py_matrix(y_pred)
+            
+        except Exception as e:
+            print(f"⚠ Error with extreme values: {e}")
+        
+        del mlp
+        
+    except Exception as e:
+        print(f"✗ Error in backward pass error handling test: {e}")
+
+def test_backward_pass_multi_layer():
+    """Test backward pass with multi-layer networks"""
+    print("\n" + "=" * 50)
+    print("TESTING BACKWARD PASS WITH MULTI-LAYER NETWORKS")
+    print("=" * 50)
+    
+    architectures = [
+        [2, 3, 1],
+        [3, 5, 3, 1],
+        [4, 8, 6, 4, 1]
+    ]
+    
+    for arch in architectures:
+        try:
+            print(f"\nTesting architecture: {arch}")
+            mlp = MLP(arch, seed=42)
+            
+            if not hasattr(mlp, 'backward_pass'):
+                print("⚠ backward_pass method not found")
+                del mlp
+                continue
+            
+            # Create appropriate input
+            input_size = arch[0]
+            X = py_list_to_c_matrix([[0.5 + 0.1 * i] for i in range(input_size)])
+            y_true = py_list_to_c_matrix([[0.7]])
+            
+            # Store initial parameters
+            initial_params = []
+            for i, (w, b) in enumerate(zip(mlp.weights, mlp.biases)):
+                w_np = to_numpy(w).copy()
+                b_np = to_numpy(b).copy()
+                initial_params.append((w_np, b_np))
+            
+            # Forward and backward pass
+            y_pred = mlp.forward_pass(X)
+            mlp.backward_pass(X, y_true, y_pred)
+            
+            # Check that all layers were updated
+            layers_updated = 0
+            for i, (w, b) in enumerate(zip(mlp.weights, mlp.biases)):
+                w_np = to_numpy(w)
+                b_np = to_numpy(b)
+                w_init, b_init = initial_params[i]
+                
+                if not np.allclose(w_np, w_init, atol=1e-10) or not np.allclose(b_np, b_init, atol=1e-10):
+                    layers_updated += 1
+                    print(f"  ✓ Layer {i} parameters updated")
+                else:
+                    print(f"  ⚠ Layer {i} parameters unchanged")
+            
+            if layers_updated == len(mlp.weights):
+                print(f"✓ All {layers_updated} layers updated successfully")
+            else:
+                print(f"⚠ Only {layers_updated}/{len(mlp.weights)} layers updated")
+            
+            free_py_matrix(X)
+            free_py_matrix(y_true)
+            free_py_matrix(y_pred)
+            del mlp
+            
+        except Exception as e:
+            print(f"✗ Error with architecture {arch}: {e}")
+
+def run_backward_pass_tests():
+    """Run all backward pass tests"""
+    print("\nBACKWARD PASS TESTING SUITE")
+    print("=" * 60)
+    
+    try:
+        test_backward_pass_comprehensive()
+        test_backward_pass_gradient_descent()
+        test_backward_pass_mathematical_correctness()
+        test_backward_pass_error_handling()
+        test_backward_pass_multi_layer()
+        
+        print("\n" + "=" * 60)
+        print("BACKWARD PASS TESTS COMPLETED")
+        print("=" * 60)
+        
+    except Exception as e:
+        print(f"\n✗ CRITICAL ERROR IN BACKWARD PASS TEST SUITE: {e}")
+        traceback.print_exc()
 
 def test_performance_benchmarks():
     """Test performance with various network sizes"""
@@ -911,7 +1350,7 @@ def run_comprehensive_test_suite():
         ("Forward Pass Tests", run_forward_pass_tests),
         ("Activation Storage", test_activation_storage),
         ("Seed Reproducibility", test_seed_reproducibility),
-        ("Backward Pass", test_backward_pass_stub),
+        ("Backward Pass", run_backward_pass_tests),
         ("Performance Benchmarks", test_performance_benchmarks)
     ]
     

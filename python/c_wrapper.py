@@ -54,8 +54,12 @@ lib.matrix_sigmoid_derivative.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_i
 lib.matrix_sigmoid_derivative.restype = DoublePtrPtr
 
 # C: double mean_squared_error(double* y_true, double* y_pred, int size){
-lib.mean_squared_error.argtypes = [DoublePtr, DoublePtr, ctypes.c_int]
+lib.mean_squared_error.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int]
 lib.mean_squared_error.restype = ctypes.c_double
+
+# C: double** matrix_hadamard(double** matrix1, double** matrix2, int matrix1_rows, int matrix2_cols) 
+lib.matrix_hadamard.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int, ctypes.c_int]
+lib.matrix_hadamard.restype = DoublePtrPtr
 
 class Matrix:
     def __init__(self, c_ptr, rows, cols):
@@ -118,12 +122,19 @@ def multiply_py_matrices(mat1, mat2):
     c_result_ptr = lib.matrix_multiply(mat1.c_ptr, mat2.c_ptr, mat1.rows, mat1.cols, mat2.cols)
     return Matrix(c_result_ptr, mat1.rows, mat2.cols)
 
+def hadamard_py_matrices(mat1, mat2):
+    if mat1.rows != mat2.rows or mat1.cols != mat2.cols:
+        raise ValueError("Hadamard product requires same shape matrices.")
+    c_result_ptr = lib.matrix_hadamard(mat1.c_ptr, mat2.c_ptr, mat1.rows, mat2.cols)
+    return Matrix(c_result_ptr, mat1.rows, mat1.cols)
+
 def transpose_py_matrix(mat):
     c_result_ptr = lib.matrix_transpose(mat.c_ptr, mat.rows, mat.cols)
     return Matrix(c_result_ptr, mat.cols, mat.rows)
 
 def scalar_multiply_py_matrix(mat, scalar):
-    lib.matrix_scalar_multiply(mat.c_ptr, scalar, mat.rows, mat.cols)
+    c_result_ptr = lib.matrix_scalar_multiply(mat.c_ptr, scalar, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.rows, mat.cols)
 
 def free_py_matrix(mat):
     lib.free_matrix(mat.c_ptr, mat.rows)
@@ -137,9 +148,7 @@ def py_sigmoid_derivative(mat):
     return Matrix(c_result_ptr, mat.rows, mat.cols)
 
 def py_mean_squared_error(y_true: list, y_pred: list, size: int):
-    y_true = py_list_to_c_matrix(y_true)
-    y_pred = py_list_to_c_matrix(y_pred)
-    return lib.mean_squared_error(y_true, y_pred, size)
+    return lib.mean_squared_error(y_true.c_ptr, y_pred.c_ptr, size)
 
 def from_numpy(np_array: np.ndarray) -> Matrix:
     if not isinstance(np_array, np.ndarray):
