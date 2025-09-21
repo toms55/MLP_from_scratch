@@ -108,6 +108,16 @@ double** matrix_scalar_multiply(double** matrix, double scalar, int rows, int co
       multiplied_matrix[i][j] = matrix[i][j] * scalar;
     } 
   }
-
   return multiplied_matrix;
+}
+
+
+double** add_weights_and_biases(double** weights, double** biases, int rows, int cols) {
+  double** result = create_matrix(rows, cols);
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      result[i][j] = weights[i][j] + biases[i][0];
+    }
+  }
+  return result;
 }

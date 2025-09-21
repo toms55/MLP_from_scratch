@@ -27,9 +27,10 @@
                 p.numpy
                 p.pandas
                 p.scipy
+                p.matplotlib
+                p.scikit-learn
               ]))
 
-              # C/C++ build tools
               pkgs.cmake
               pkgs.gdb
             ];
@@ -44,7 +45,7 @@
               echo "  - cmake"
               echo "  - gdb (debugger)"
               echo ""
-              echo "To run the Python code: 'python3 your_script.py'"
+              echo "To run the Python code: 'python3 python/run.py'"
               echo "To build the C code: 'make run'"
               echo "-------------------------------------"
             '';

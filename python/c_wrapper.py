@@ -61,6 +61,9 @@ lib.mean_squared_error.restype = ctypes.c_double
 lib.matrix_hadamard.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.matrix_hadamard.restype = DoublePtrPtr
 
+lib.add_weights_and_biases.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int, ctypes.c_int]
+lib.add_weights_and_biases.restype = DoublePtrPtr
+
 class Matrix:
     def __init__(self, c_ptr, rows, cols):
         self.c_ptr = c_ptr
@@ -150,6 +153,10 @@ def py_sigmoid_derivative(mat):
 def py_mean_squared_error(y_true: list, y_pred: list):
     size = y_true.rows * y_true.cols
     return lib.mean_squared_error(y_true.c_ptr, y_pred.c_ptr, size)
+
+def py_add_weights_and_biases(weights, biases):
+    c_result_ptr = lib.add_weights_and_biases(weights.c_ptr, biases.c_ptr, weights.rows, weights.cols)
+    return Matrix(c_result_ptr, weights.rows, weights.cols)
 
 def from_numpy(np_array: np.ndarray) -> Matrix:
     if not isinstance(np_array, np.ndarray):

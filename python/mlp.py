@@ -43,7 +43,8 @@ class MLP:
             weights = self.weights[layer_index]
             biases = self.biases[layer_index]
 
-            input_matrix = c_wrapper.add_py_matrices(c_wrapper.multiply_py_matrices(weights, cur_output), biases) 
+            weights_matrix = c_wrapper.multiply_py_matrices(weights, cur_output)
+            input_matrix = c_wrapper.py_add_weights_and_biases(weights_matrix, biases)
 
             if self.activation == "Sigmoid":
                 activated_matrix = c_wrapper.py_sigmoid(input_matrix)
@@ -90,7 +91,7 @@ class MLP:
             
             transposed_prev_activation = c_wrapper.transpose_py_matrix(prev_activation)
             weight_gradient = c_wrapper.multiply_py_matrices(error_signal, transposed_prev_activation)
-            bias_gradient = error_signal
+            bias_gradient = error_signal # this needs to be fixed so that error signal has the same dimensions as bias gradient
             
             scaled_wg = c_wrapper.scalar_multiply_py_matrix(weight_gradient, self.learning_rate)
             scaled_bg = c_wrapper.scalar_multiply_py_matrix(bias_gradient, self.learning_rate)
@@ -115,8 +116,8 @@ class MLP:
         c_wrapper.free_py_matrix(output_error)
 
     def train_model(self, X: np.ndarray, y: np.ndarray, epochs: int):
-        X = c_wrapper.from_numpy(X)
-        y = c_wrapper.from_numpy(y)
+        X = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
+        y = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(y))
 
         for epoch in range(epochs):
             print(f"Training epoch {epoch}\n")
@@ -126,13 +127,14 @@ class MLP:
             loss = c_wrapper.py_mean_squared_error(y, y_pred)
             print(f"This epoch's loss is {loss:.6f}")
 
-            self.backwards_pass(self, X, y, y_pred)
+            self.backward_pass(X, y, y_pred)
 
         print("Training Complete")
 
     def predict(self, X: np.ndarray):
-        X = c_wrapper.from_numpy
-        y_pred = self.forward_pass(X)
+        X = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
+        y_pred = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(y_pred))
+
         prediction = c_wrapper.to_numpy(y_pred)
 
         return prediction
