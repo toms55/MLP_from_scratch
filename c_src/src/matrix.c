@@ -100,7 +100,6 @@ double** matrix_transpose(double** matrix, int rows, int cols){
 }
 
 double** matrix_scalar_multiply(double** matrix, double scalar, int rows, int cols){
-
   double** multiplied_matrix = create_matrix(rows, cols);
 
   for (int i = 0; i < rows; ++i){
@@ -111,8 +110,22 @@ double** matrix_scalar_multiply(double** matrix, double scalar, int rows, int co
   return multiplied_matrix;
 }
 
+double* sum_matrix_columns(double** matrix, int rows, int cols){
+  double* summed_vector = (double*)malloc(rows * sizeof(double));
 
-double** add_weights_and_biases(double** weights, double** biases, int rows, int cols) {
+  for (int i = 0; i < rows; ++i){
+    double column_sum = 0;
+    for (int j = 0; j < cols; ++j){
+      column_sum += matrix[i][j];
+    }
+    summed_vector[i] = column_sum;
+  }
+
+  return summed_vector;
+}
+
+
+double** add_weights_and_biases(double** weights, double** biases, int rows, int cols){
   double** result = create_matrix(rows, cols);
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
