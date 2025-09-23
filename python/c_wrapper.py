@@ -65,9 +65,9 @@ lib.matrix_hadamard.restype = DoublePtrPtr
 lib.add_weights_and_biases.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.add_weights_and_biases.restype = DoublePtrPtr
 
-# C: double* sum_matrix_columns(double** matrix, int rows, int cols){
+# C: double** sum_matrix_columns(double** matrix, int rows, int cols)
 lib.sum_matrix_columns.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
-lib.sum_matrix_columns.restype = DoublePtr
+lib.sum_matrix_columns.restype = DoublePtrPtr
 
 class Matrix:
     def __init__(self, c_ptr, rows, cols):

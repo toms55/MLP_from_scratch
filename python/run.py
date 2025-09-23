@@ -13,16 +13,6 @@ y = y.reshape(-1, 1)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-plt.figure(figsize=(8, 6))
-plt.scatter(X_train[y_train[:,0] == 0][:, 0], X_train[y_train[:,0] == 0][:, 1], label='Class 0')
-plt.scatter(X_train[y_train[:,0] == 1][:, 0], X_train[y_train[:,0] == 1][:, 1], label='Class 1')
-plt.title("Generated XOR-like Training Data")
-plt.xlabel("Feature 1")
-plt.ylabel("Feature 2")
-plt.legend()
-plt.grid(True)
-plt.show()
-
 mlp = MLP(layer_sizes=[2, 4, 5, 1], learning_rate=0.1)
 
 print("Starting training...")

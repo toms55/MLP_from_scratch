@@ -11,7 +11,7 @@ class MLP:
         self.activation = activation
         self.loss = loss
         self.learning_rate = learning_rate
-        self.activations = [] # will be populated in loops
+        self.activations = []
 
         self.weights = [] # List of C matrix pointers
         self.biases = [] # List of C matrix pointer
@@ -49,7 +49,7 @@ class MLP:
             if self.activation == "Sigmoid":
                 activated_matrix = c_wrapper.py_sigmoid(input_matrix)
             else:
-                raise "The activation function {self.activation} has not been implemented"
+                raise ValueError("The activation function {self.activation} has not been implemented")
 
             c_wrapper.free_py_matrix(input_matrix)
 
@@ -58,11 +58,11 @@ class MLP:
 
         return cur_output 
 
-    def backward_pass(self, X: c_wrapper.Matrix, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
+    def backward_pass(self, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
         if self.loss == "MSE":
             # derivative = 1/N(y_pred - y_true)
             diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
-            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 1 / y_true.rows)
+            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 1 / y_true.cols)
             c_wrapper.free_py_matrix(diff)
         else:
             raise ValueError(f"{self.loss} has not been defined yet.")
@@ -129,14 +129,22 @@ class MLP:
             loss = c_wrapper.py_mean_squared_error(y, y_pred)
             print(f"This epoch's loss is {loss:.6f}")
 
-            self.backward_pass(X, y, y_pred)
+            self.backward_pass(y, y_pred)
+
+        c_wrapper.free_py_matrix(X)
+        c_wrapper.free_py_matrix(y)
 
         print("Training Complete")
 
     def predict(self, X: np.ndarray):
         X = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
-        y_pred = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(y_pred))
 
-        prediction = c_wrapper.to_numpy(y_pred)
+        y_pred = self.forward_pass(X)
+        y_pred_transposed = c_wrapper.transpose_py_matrix(y_pred)
+
+        prediction = c_wrapper.to_numpy(y_pred_transposed)
+
+        c_wrapper.free_py_matrix(X)
+        c_wrapper.free_py_matrix(y_pred_transposed)
 
         return prediction
