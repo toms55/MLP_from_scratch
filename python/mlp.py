@@ -89,13 +89,15 @@ class MLP:
 
             c_wrapper.free_py_matrix(activation_derivative)
             
+            
             transposed_prev_activation = c_wrapper.transpose_py_matrix(prev_activation)
             weight_gradient = c_wrapper.multiply_py_matrices(error_signal, transposed_prev_activation)
-            bias_gradient = error_signal # this needs to be fixed so that error signal has the same dimensions as bias gradient
+            bias_gradient = c_wrapper.sum_py_matrix_columns(error_signal)
             
             scaled_wg = c_wrapper.scalar_multiply_py_matrix(weight_gradient, self.learning_rate)
             scaled_bg = c_wrapper.scalar_multiply_py_matrix(bias_gradient, self.learning_rate)
-            
+            c_wrapper.free_py_matrix(bias_gradient)
+
             new_weights = c_wrapper.subtract_py_matrices(weights, scaled_wg)
             new_biases = c_wrapper.subtract_py_matrices(biases, scaled_bg)
             

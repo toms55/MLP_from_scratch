@@ -66,7 +66,7 @@ lib.add_weights_and_biases.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int,
 lib.add_weights_and_biases.restype = DoublePtrPtr
 
 # C: double* sum_matrix_columns(double** matrix, int rows, int cols){
-lib.sum_matrix_columns.argtypes = [DoublePtr, ctypes.c_int, ctypes.c_int]
+lib.sum_matrix_columns.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.sum_matrix_columns.restype = DoublePtr
 
 class Matrix:
@@ -136,9 +136,9 @@ def hadamard_py_matrices(mat1, mat2):
     c_result_ptr = lib.matrix_hadamard(mat1.c_ptr, mat2.c_ptr, mat1.rows, mat2.cols)
     return Matrix(c_result_ptr, mat1.rows, mat1.cols)
 
-def sum_py_matrix_columnns(mat):
+def sum_py_matrix_columns(mat):
     c_result_ptr = lib.sum_matrix_columns(mat.c_ptr, mat.rows, mat.cols)
-    return Matrix(c_result_ptr, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.rows, 1)
 
 def transpose_py_matrix(mat):
     c_result_ptr = lib.matrix_transpose(mat.c_ptr, mat.rows, mat.cols)
