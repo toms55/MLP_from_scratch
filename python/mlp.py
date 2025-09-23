@@ -32,10 +32,19 @@ class MLP:
         for b in self.biases:
             c_wrapper.free_py_matrix(b)
 
+    def _clear_activations(self):
+        # The first activation is the input X, which is managed outside this class.
+        # We only free the matrices created during the forward pass.
+        for i in range(1, len(self.activations)):
+            c_wrapper.free_py_matrix(self.activations[i])
+        self.activations = []
+
     def forward_pass(self, X: c_wrapper.Matrix):
         """
         Compute the forward pass for the whole network 
         """
+        self._clear_activations()
+
         self.activations = [X]
         cur_output = X
 
@@ -46,10 +55,12 @@ class MLP:
             weights_matrix = c_wrapper.multiply_py_matrices(weights, cur_output)
             input_matrix = c_wrapper.py_add_weights_and_biases(weights_matrix, biases)
 
+            c_wrapper.free_py_matrix(weights_matrix)
+
             if self.activation == "Sigmoid":
                 activated_matrix = c_wrapper.py_sigmoid(input_matrix)
             else:
-                raise ValueError("The activation function {self.activation} has not been implemented")
+                raise ValueError(f"The activation function {self.activation} has not been implemented")
 
             c_wrapper.free_py_matrix(input_matrix)
 
@@ -60,9 +71,8 @@ class MLP:
 
     def backward_pass(self, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
         if self.loss == "MSE":
-            # derivative = 1/N(y_pred - y_true)
             diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
-            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 1 / y_true.cols)
+            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
             c_wrapper.free_py_matrix(diff)
         else:
             raise ValueError(f"{self.loss} has not been defined yet.")
@@ -75,7 +85,7 @@ class MLP:
             activations = self.activations[layer_index + 1]
             prev_activation = self.activations[layer_index]
             
-            activation_derivative = c_wrapper.py_sigmoid_derivative(activations) # make this conditional based on self.activation
+            activation_derivative = c_wrapper.py_sigmoid_derivative(activations)
 
             if layer_index == len(self.weights) - 1:
                 error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
@@ -89,15 +99,13 @@ class MLP:
 
             c_wrapper.free_py_matrix(activation_derivative)
             
-            
             transposed_prev_activation = c_wrapper.transpose_py_matrix(prev_activation)
             weight_gradient = c_wrapper.multiply_py_matrices(error_signal, transposed_prev_activation)
             bias_gradient = c_wrapper.sum_py_matrix_columns(error_signal)
             
             scaled_wg = c_wrapper.scalar_multiply_py_matrix(weight_gradient, self.learning_rate)
             scaled_bg = c_wrapper.scalar_multiply_py_matrix(bias_gradient, self.learning_rate)
-            c_wrapper.free_py_matrix(bias_gradient)
-
+            
             new_weights = c_wrapper.subtract_py_matrices(weights, scaled_wg)
             new_biases = c_wrapper.subtract_py_matrices(biases, scaled_bg)
             
@@ -110,10 +118,14 @@ class MLP:
             c_wrapper.free_py_matrix(transposed_prev_activation)
             c_wrapper.free_py_matrix(weight_gradient)
             c_wrapper.free_py_matrix(scaled_wg)
+            c_wrapper.free_py_matrix(bias_gradient)
             c_wrapper.free_py_matrix(scaled_bg)
             
-            c_wrapper.free_py_matrix(output_error)
+            prev_output_error = output_error
             output_error = error_signal
+            
+            if prev_output_error.c_ptr != output_error.c_ptr:
+                 c_wrapper.free_py_matrix(prev_output_error)
 
         c_wrapper.free_py_matrix(output_error)
 
@@ -146,5 +158,6 @@ class MLP:
 
         c_wrapper.free_py_matrix(X)
         c_wrapper.free_py_matrix(y_pred_transposed)
+        # Note: The memory for y_pred_c will be freed by the _clear_activations()
 
         return prediction
