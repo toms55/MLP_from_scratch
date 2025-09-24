@@ -13,10 +13,10 @@ y = y.reshape(-1, 1)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-mlp = MLP(layer_sizes=[2, 1], learning_rate=0.0001)
+mlp = MLP(layer_sizes=[2, 2, 1], learning_rate=0.01)
 
 print("Starting training...")
-mlp.train_model(X_train, y_train, epochs=1000)
+mlp.train_model(X_train, y_train, epochs=200)
 
 print("\n--- Testing the trained model ---")
 predictions = mlp.predict(X_test)
