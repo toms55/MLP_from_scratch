@@ -70,63 +70,51 @@ class MLP:
         return cur_output 
 
     def backward_pass(self, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
-        if self.loss == "MSE":
-            diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
-            initial_loss_grad = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
-            c_wrapper.free_py_matrix(diff)
-        else:
+        # Compute initial loss gradient
+        if self.loss != "MSE":
             raise ValueError(f"{self.loss} has not been defined yet.")
         
-        output_error = initial_loss_grad
+        diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
+        output_error = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
+        c_wrapper.free_py_matrix(diff)
         
+        # Backpropagate through layers
         for layer_index in range(len(self.weights) - 1, -1, -1):
-            weights = self.weights[layer_index]
-            biases = self.biases[layer_index]
-            activations = self.activations[layer_index + 1]
-            prev_activation = self.activations[layer_index]
+            activation_derivative = c_wrapper.py_sigmoid_derivative(self.activations[layer_index + 1])
             
-            activation_derivative = c_wrapper.py_sigmoid_derivative(activations)
-
+            # Compute error signal
             if layer_index == len(self.weights) - 1:
                 error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
             else:
-                next_weights = self.weights[layer_index + 1]
-                transposed_weights = c_wrapper.transpose_py_matrix(next_weights)
+                transposed_weights = c_wrapper.transpose_py_matrix(self.weights[layer_index + 1])
                 backpropagate = c_wrapper.multiply_py_matrices(transposed_weights, output_error)
                 error_signal = c_wrapper.hadamard_py_matrices(backpropagate, activation_derivative)
                 c_wrapper.free_py_matrix(transposed_weights)
                 c_wrapper.free_py_matrix(backpropagate)
+            
+            # Compute gradients and update parameters
+            transposed_prev = c_wrapper.transpose_py_matrix(self.activations[layer_index])
+            weight_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.multiply_py_matrices(error_signal, transposed_prev), self.learning_rate)
+            bias_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.sum_py_matrix_columns(error_signal), self.learning_rate)
+            
+            # Update parameters
+            new_weights = c_wrapper.subtract_py_matrices(self.weights[layer_index], weight_grad)
+            new_biases = c_wrapper.subtract_py_matrices(self.biases[layer_index], bias_grad)
 
-            c_wrapper.free_py_matrix(activation_derivative)
-            
-            transposed_prev_activation = c_wrapper.transpose_py_matrix(prev_activation)
-            weight_gradient = c_wrapper.multiply_py_matrices(error_signal, transposed_prev_activation)
-            bias_gradient = c_wrapper.sum_py_matrix_columns(error_signal)
-            
-            scaled_wg = c_wrapper.scalar_multiply_py_matrix(weight_gradient, self.learning_rate)
-            scaled_bg = c_wrapper.scalar_multiply_py_matrix(bias_gradient, self.learning_rate)
-            
-            new_weights = c_wrapper.subtract_py_matrices(weights, scaled_wg)
-            new_biases = c_wrapper.subtract_py_matrices(biases, scaled_bg)
-            
             c_wrapper.free_py_matrix(self.weights[layer_index])
             c_wrapper.free_py_matrix(self.biases[layer_index])
 
             self.weights[layer_index] = new_weights
             self.biases[layer_index] = new_biases
 
-            c_wrapper.free_py_matrix(transposed_prev_activation)
-            c_wrapper.free_py_matrix(weight_gradient)
-            c_wrapper.free_py_matrix(scaled_wg)
-            c_wrapper.free_py_matrix(bias_gradient)
-            c_wrapper.free_py_matrix(scaled_bg)
+            for temp in [activation_derivative, transposed_prev, weight_grad, bias_grad]:
+                c_wrapper.free_py_matrix(temp)
             
-            prev_output_error = output_error
+            # Propagate error
+            if output_error.c_ptr != error_signal.c_ptr:
+                c_wrapper.free_py_matrix(output_error)
             output_error = error_signal
-            
-            if prev_output_error.c_ptr != output_error.c_ptr:
-                 c_wrapper.free_py_matrix(prev_output_error)
-
+        
         c_wrapper.free_py_matrix(output_error)
 
     def train_model(self, X: np.ndarray, y: np.ndarray, epochs: int):
@@ -142,6 +130,8 @@ class MLP:
             print(f"This epoch's loss is {loss:.6f}")
 
             self.backward_pass(y, y_pred)
+
+            self._clear_activations()
 
         c_wrapper.free_py_matrix(X)
         c_wrapper.free_py_matrix(y)
