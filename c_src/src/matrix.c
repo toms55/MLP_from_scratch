@@ -13,12 +13,15 @@ double** create_matrix(int rows, int cols){
   return matrix;
 }
 
-void free_matrix(double** matrix, int rows){
-  for (int i = 0; i < rows; ++i) {
-    free(matrix[i]);
-  }
+void free_matrix(double** matrix, int rows) {
+    if (matrix == NULL) return;
 
-  free(matrix);
+    for (int i = 0; i < rows; ++i) {
+        free(matrix[i]);
+        matrix[i] = NULL;
+    }
+
+    free(*matrix);
 }
 
 double** create_zero_matrix(int rows, int cols){
@@ -75,11 +78,11 @@ double** matrix_multiply(double** matrix1, double** matrix2, int matrix1_rows, i
   return multiplied_matrix;
 }
 
-double** matrix_hadamard(double** matrix1, double** matrix2, int matrix1_rows, int matrix2_cols){
-  double** hadamard_matrix = create_matrix(matrix1_rows, matrix2_cols);
+double** matrix_hadamard(double** matrix1, double** matrix2, int matrix1_rows, int matrix1_cols){
+  double** hadamard_matrix = create_matrix(matrix1_rows, matrix1_cols);
 
   for (int i = 0; i < matrix1_rows; ++i) {
-    for (int j = 0; j < matrix2_cols; ++j) {
+    for (int j = 0; j < matrix1_cols; ++j) {
       hadamard_matrix[i][j] = matrix1[i][j] * matrix2[i][j];
     }  
   }
