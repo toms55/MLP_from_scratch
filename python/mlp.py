@@ -3,12 +3,13 @@ import numpy as np
 from typing import List, Optional
 
 class MLP:
-    def __init__(self, layer_sizes: List[int], activation="Sigmoid", loss: str="MSE", learning_rate=0.01, seed: Optional[int]=None):
+    def __init__(self, layer_sizes: List[int], hidden_activation: str, output_activation: str, loss: str="MSE", learning_rate=0.01, seed: Optional[int]=None):
         if len(layer_sizes) < 2:
             print("Layer sizes must be >= 2")
 
         self.layer_sizes = layer_sizes
-        self.activation = activation.lower() 
+        self.hidden_activation = hidden_activation.lower()
+        self.output_activation = output_activation.lower()
         self.loss = loss
         self.learning_rate = learning_rate
         self.activations = []
@@ -33,7 +34,6 @@ class MLP:
             c_wrapper.free_py_matrix(b)
 
     def _clear_activations(self):
-        # activations[0] (the input X) is managed by the caller/train_model/predict
         for i in range(1, len(self.activations)):
             c_wrapper.free_py_matrix(self.activations[i])
         self.activations = []
@@ -43,8 +43,9 @@ class MLP:
 
         self.activations = [X]
         cur_output = X
+        num_layers = len(self.weights)
 
-        for layer_index in range(len(self.weights)):
+        for layer_index in range(num_layers):
             weights = self.weights[layer_index]
             biases = self.biases[layer_index]
 
@@ -53,14 +54,19 @@ class MLP:
 
             c_wrapper.free_py_matrix(weights_matrix)
 
-            if self.activation == "sigmoid":
+            is_output_layer = (layer_index == num_layers - 1)
+            activation_type = self.output_activation if is_output_layer else self.hidden_activation
+            
+            if activation_type == "sigmoid":
                 activated_matrix = c_wrapper.py_sigmoid(input_matrix)
-            elif self.activation == "relu":
-                activated_matrix = c_wrapper.py_matrix_relu(input_matrix) 
+                c_wrapper.free_py_matrix(input_matrix)
+            elif activation_type == "relu":
+                activated_matrix = c_wrapper.py_matrix_relu(input_matrix)
+                c_wrapper.free_py_matrix(input_matrix)
+            elif activation_type == "identity":
+                activated_matrix = input_matrix
             else:
-                raise ValueError(f"The activation function {self.activation} has not been implemented")
-
-            c_wrapper.free_py_matrix(input_matrix)
+                raise ValueError(f"The activation function {activation_type} has not been implemented")
 
             cur_output = activated_matrix
             self.activations.append(cur_output)
@@ -76,24 +82,43 @@ class MLP:
         output_error = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
         c_wrapper.free_py_matrix(diff)
         
+        num_layers = len(self.weights)
+
         # Backpropagate through layers
-        for layer_index in range(len(self.weights) - 1, -1, -1):
+        for layer_index in range(num_layers - 1, -1, -1):
             
-            if self.activation == "sigmoid":
+            is_output_layer = (layer_index == num_layers - 1)
+            activation_type = self.output_activation if is_output_layer else self.hidden_activation
+            
+            if activation_type == "sigmoid":
                 activation_derivative = c_wrapper.py_sigmoid_derivative(self.activations[layer_index + 1])
-            elif self.activation == "relu":
+            elif activation_type == "relu":
                 activation_derivative = c_wrapper.py_matrix_relu_derivative(self.activations[layer_index + 1])
+            elif activation_type == "identity":
+                activation_derivative = None
+                pass
             else:
-                raise ValueError(f"Unsupported activation {self.activation} in backward_pass")
+                raise ValueError(f"Unsupported activation {activation_type} in backward_pass")
             
-            if layer_index == len(self.weights) - 1:
-                error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
+            # Compute error signal (delta)
+            if layer_index == num_layers - 1:
+                # Output Layer: Loss_grad * Act_Derivative
+                if activation_type == "identity":
+                    # Derivative of 1: Error passes straight through
+                    error_signal = output_error 
+                else:
+                    error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
             else:
-                # Hidden layer: (W_T * Previous_Error) * Act_Derivative
+                # Hidden Layer: (W_T * Previous_Error) * Act_Derivative
                 transposed_weights = c_wrapper.transpose_py_matrix(self.weights[layer_index + 1])
                 backpropagate = c_wrapper.multiply_py_matrices(transposed_weights, output_error)
-                error_signal = c_wrapper.hadamard_py_matrices(backpropagate, activation_derivative)
                 c_wrapper.free_py_matrix(transposed_weights)
+
+                if activation_type == "identity":
+                    error_signal = backpropagate
+                else:
+                    error_signal = c_wrapper.hadamard_py_matrices(backpropagate, activation_derivative)
+                
                 c_wrapper.free_py_matrix(backpropagate)
                 
             # Weight Gradient = Error_Signal * A_{L-1}^T
@@ -102,7 +127,7 @@ class MLP:
             # Bias Gradient = Sum of error signal columns
             bias_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.sum_py_matrix_columns(error_signal), self.learning_rate)
             
-            # Update parameters: W_new = W_old - Grad
+            # W_new = W_old - Grad
             new_weights = c_wrapper.subtract_py_matrices(self.weights[layer_index], weight_grad)
             new_biases = c_wrapper.subtract_py_matrices(self.biases[layer_index], bias_grad)
 
@@ -112,10 +137,12 @@ class MLP:
             self.weights[layer_index] = new_weights
             self.biases[layer_index] = new_biases
 
-            for temp in [activation_derivative, transposed_prev, weight_grad, bias_grad]:
-                c_wrapper.free_py_matrix(temp)
+            if activation_derivative is not None:
+                c_wrapper.free_py_matrix(activation_derivative)
+            c_wrapper.free_py_matrix(transposed_prev)
+            c_wrapper.free_py_matrix(weight_grad)
+            c_wrapper.free_py_matrix(bias_grad)
                 
-            # Propagate error: old output_error is no longer needed, update to current error_signal
             if output_error.c_ptr != error_signal.c_ptr:
                 c_wrapper.free_py_matrix(output_error)
             output_error = error_signal
