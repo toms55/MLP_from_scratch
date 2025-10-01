@@ -69,6 +69,14 @@ lib.add_weights_and_biases.restype = DoublePtrPtr
 lib.sum_matrix_columns.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.sum_matrix_columns.restype = DoublePtrPtr
 
+# double** matrix_relu(double** matrix, int rows, int cols){
+lib.matrix_relu.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
+lib.matrix_relu.restype = DoublePtrPtr
+
+#double** matrix_relu_derivative(double** matrix, int rows, int cols){
+lib.matrix_relu_derivative.argtypes = [DoublePtrPtr, ctypes.c_int, ctypes.c_int]
+lib.matrix_relu_derivative.restype = DoublePtrPtr
+
 class Matrix:
     def __init__(self, c_ptr, rows, cols):
         self.c_ptr = c_ptr
@@ -157,6 +165,14 @@ def py_sigmoid(mat):
 
 def py_sigmoid_derivative(mat):
     c_result_ptr = lib.matrix_sigmoid_derivative(mat.c_ptr, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.rows, mat.cols)
+
+def py_matrix_relu(mat):
+    c_result_ptr = lib.matrix_relu(mat.c_ptr, mat.rows, mat.cols)
+    return Matrix(c_result_ptr, mat.rows, mat.cols)
+
+def py_matrix_relu_derivative(mat):
+    c_result_ptr = lib.matrix_relu_derivative(mat.c_ptr, mat.rows, mat.cols)
     return Matrix(c_result_ptr, mat.rows, mat.cols)
 
 def py_mean_squared_error(y_true: list, y_pred: list):

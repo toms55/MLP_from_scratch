@@ -8,7 +8,7 @@ class MLP:
             print("Layer sizes must be >= 2")
 
         self.layer_sizes = layer_sizes
-        self.activation = activation
+        self.activation = activation.lower() 
         self.loss = loss
         self.learning_rate = learning_rate
         self.activations = []
@@ -33,16 +33,12 @@ class MLP:
             c_wrapper.free_py_matrix(b)
 
     def _clear_activations(self):
-        # The first activation is the input X, which is managed outside this class.
-        # We only free the matrices created during the forward pass.
+        # activations[0] (the input X) is managed by the caller/train_model/predict
         for i in range(1, len(self.activations)):
             c_wrapper.free_py_matrix(self.activations[i])
         self.activations = []
 
     def forward_pass(self, X: c_wrapper.Matrix):
-        """
-        Compute the forward pass for the whole network 
-        """
         self._clear_activations()
 
         self.activations = [X]
@@ -57,8 +53,10 @@ class MLP:
 
             c_wrapper.free_py_matrix(weights_matrix)
 
-            if self.activation == "Sigmoid":
+            if self.activation == "sigmoid":
                 activated_matrix = c_wrapper.py_sigmoid(input_matrix)
+            elif self.activation == "relu":
+                activated_matrix = c_wrapper.py_matrix_relu(input_matrix) 
             else:
                 raise ValueError(f"The activation function {self.activation} has not been implemented")
 
@@ -70,34 +68,41 @@ class MLP:
         return cur_output 
 
     def backward_pass(self, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
-        # Compute initial loss gradient
         if self.loss != "MSE":
             raise ValueError(f"{self.loss} has not been defined yet.")
         
+        # Gradient for MSE: 2 * (y_pred - y_true) / N
         diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
         output_error = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
         c_wrapper.free_py_matrix(diff)
         
         # Backpropagate through layers
         for layer_index in range(len(self.weights) - 1, -1, -1):
-            activation_derivative = c_wrapper.py_sigmoid_derivative(self.activations[layer_index + 1])
             
-            # Compute error signal
+            if self.activation == "sigmoid":
+                activation_derivative = c_wrapper.py_sigmoid_derivative(self.activations[layer_index + 1])
+            elif self.activation == "relu":
+                activation_derivative = c_wrapper.py_matrix_relu_derivative(self.activations[layer_index + 1])
+            else:
+                raise ValueError(f"Unsupported activation {self.activation} in backward_pass")
+            
             if layer_index == len(self.weights) - 1:
                 error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
             else:
+                # Hidden layer: (W_T * Previous_Error) * Act_Derivative
                 transposed_weights = c_wrapper.transpose_py_matrix(self.weights[layer_index + 1])
                 backpropagate = c_wrapper.multiply_py_matrices(transposed_weights, output_error)
                 error_signal = c_wrapper.hadamard_py_matrices(backpropagate, activation_derivative)
                 c_wrapper.free_py_matrix(transposed_weights)
                 c_wrapper.free_py_matrix(backpropagate)
-            
-            # Compute gradients and update parameters
+                
+            # Weight Gradient = Error_Signal * A_{L-1}^T
             transposed_prev = c_wrapper.transpose_py_matrix(self.activations[layer_index])
             weight_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.multiply_py_matrices(error_signal, transposed_prev), self.learning_rate)
+            # Bias Gradient = Sum of error signal columns
             bias_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.sum_py_matrix_columns(error_signal), self.learning_rate)
             
-            # Update parameters
+            # Update parameters: W_new = W_old - Grad
             new_weights = c_wrapper.subtract_py_matrices(self.weights[layer_index], weight_grad)
             new_biases = c_wrapper.subtract_py_matrices(self.biases[layer_index], bias_grad)
 
@@ -109,8 +114,8 @@ class MLP:
 
             for temp in [activation_derivative, transposed_prev, weight_grad, bias_grad]:
                 c_wrapper.free_py_matrix(temp)
-            
-            # Propagate error
+                
+            # Propagate error: old output_error is no longer needed, update to current error_signal
             if output_error.c_ptr != error_signal.c_ptr:
                 c_wrapper.free_py_matrix(output_error)
             output_error = error_signal
@@ -118,36 +123,37 @@ class MLP:
         c_wrapper.free_py_matrix(output_error)
 
     def train_model(self, X: np.ndarray, y: np.ndarray, epochs: int):
-        X = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
-        y = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(y))
+        X_c = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
+        y_c = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(y))
 
         for epoch in range(epochs):
             print(f"Training epoch {epoch}\n")
 
-            y_pred = self.forward_pass(X)
+            y_pred = self.forward_pass(X_c)
             
-            loss = c_wrapper.py_mean_squared_error(y, y_pred)
+            loss = c_wrapper.py_mean_squared_error(y_c, y_pred)
             print(f"This epoch's loss is {loss:.6f}")
 
-            self.backward_pass(y, y_pred)
+            self.backward_pass(y_c, y_pred)
 
             self._clear_activations()
 
-        c_wrapper.free_py_matrix(X)
-        c_wrapper.free_py_matrix(y)
+        c_wrapper.free_py_matrix(X_c)
+        c_wrapper.free_py_matrix(y_c)
 
         print("Training Complete")
 
     def predict(self, X: np.ndarray):
-        X = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
+        X_c = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(X))
 
-        y_pred = self.forward_pass(X)
+        y_pred = self.forward_pass(X_c)
+        # Transpose the output back to NumPy's (samples, features) format
         y_pred_transposed = c_wrapper.transpose_py_matrix(y_pred)
 
         prediction = c_wrapper.to_numpy(y_pred_transposed)
 
-        c_wrapper.free_py_matrix(X)
+        c_wrapper.free_py_matrix(X_c)
         c_wrapper.free_py_matrix(y_pred_transposed)
-        # Note: The memory for y_pred_c will be freed by the _clear_activations()
+        self._clear_activations()
 
         return prediction

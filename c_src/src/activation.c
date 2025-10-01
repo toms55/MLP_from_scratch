@@ -38,3 +38,32 @@ double** matrix_sigmoid_derivative(double** matrix, int rows, int cols){
 
   return result;
 }
+
+double** matrix_relu(double** matrix, int rows, int cols){
+  double** result = create_matrix(rows, cols);
+
+  for (int i = 0; i < rows; ++i){
+       for (int j = 0; j < cols; ++j){
+        result[i][j] = fmax(matrix[i][j], 0);
+    }
+  }
+
+  return result;
+} 
+
+double** matrix_relu_derivative(double** matrix, int rows, int cols){
+  double** result = create_matrix(rows, cols);
+
+  for (int i = 0; i < rows; ++i){
+    for (int j = 0; j < cols; ++j){
+      if (matrix[i][j] >= 0){
+        result[i][j] = 1;
+      }
+      else{
+        result[i][j] = 0;
+      }
+    }
+  }
+
+  return result;
+}
