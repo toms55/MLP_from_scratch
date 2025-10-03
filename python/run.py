@@ -49,7 +49,7 @@ print("Scaling features manually...")
 X_train_scaled, X_test_scaled = custom_standard_scaler(X_train, X_test)
 
 input_size = X_train_scaled.shape[1]
-mlp = MLP(layer_sizes=[input_size, 100, 100, 5, 10, 1], hidden_activation="ReLU", output_activation="identity", learning_rate=0.01)
+mlp = MLP(layer_sizes=[input_size, 16, 8, 1], hidden_activation="ReLU", output_activation="ReLU", learning_rate=0.01)
 
 print("Starting training...")
 mlp.train_model(X_train_scaled, y_train, epochs=100)
