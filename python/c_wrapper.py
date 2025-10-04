@@ -57,6 +57,10 @@ lib.matrix_sigmoid_derivative.restype = DoublePtrPtr
 lib.mean_squared_error.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int]
 lib.mean_squared_error.restype = ctypes.c_double
 
+# C: double mean_absolute_percentage_error(double* y_true, double* y_pred, int size){
+lib.mean_absolute_percentage_error.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int]
+lib.mean_absolute_percentage_error.restype = ctypes.c_double
+
 # C: double** matrix_hadamard(double** matrix1, double** matrix2, int matrix1_rows, int matrix2_cols) 
 lib.matrix_hadamard.argtypes = [DoublePtrPtr, DoublePtrPtr, ctypes.c_int, ctypes.c_int]
 lib.matrix_hadamard.restype = DoublePtrPtr
@@ -176,8 +180,12 @@ def py_matrix_relu_derivative(mat):
     return Matrix(c_result_ptr, mat.rows, mat.cols)
 
 def py_mean_squared_error(y_true: list, y_pred: list):
-    size = y_true.rows * y_true.cols
+    size = y_true.rows * y_true.cols 
     return lib.mean_squared_error(y_true.c_ptr, y_pred.c_ptr, size)
+
+def py_mean_absolute_percentage_error(y_true: list, y_pred: list):
+    size = y_true.rows * y_true.cols
+    return lib.mean_absolute_percentage_error(y_true.c_ptr, y_pred.c_ptr, size)
 
 def py_add_weights_and_biases(weights, biases):
     c_result_ptr = lib.add_weights_and_biases(weights.c_ptr, biases.c_ptr, weights.rows, weights.cols)

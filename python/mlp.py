@@ -26,13 +26,6 @@ class MLP:
             self.weights.append(c_wrapper.from_numpy(w_np))
             self.biases.append(c_wrapper.from_numpy(b_np))
 
-    #When MLP is Garbage Collected, free the C allocated memory for the weights and biases
-    def __del__(self):
-        for w in self.weights:
-            c_wrapper.free_py_matrix(w)
-        for b in self.biases:
-            c_wrapper.free_py_matrix(b)
-
     def _clear_activations(self):
         for i in range(1, len(self.activations)):
             c_wrapper.free_py_matrix(self.activations[i])

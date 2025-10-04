@@ -49,10 +49,10 @@ print("Scaling features manually...")
 X_train_scaled, X_test_scaled = custom_standard_scaler(X_train, X_test)
 
 input_size = X_train_scaled.shape[1]
-mlp = MLP(layer_sizes=[input_size, 16, 8, 1], hidden_activation="ReLU", output_activation="ReLU", learning_rate=0.01)
+mlp = MLP(layer_sizes=[input_size, 32, 16, 1], hidden_activation="ReLU", output_activation="relu", loss="MSE", learning_rate=0.01)
 
 print("Starting training...")
-mlp.train_model(X_train_scaled, y_train, epochs=100)
+mlp.train_model(X_train_scaled, y_train, epochs=500)
 
 
 print("\n--- Testing the trained model ---")
@@ -63,6 +63,17 @@ predictions_c = c_wrapper.transpose_py_matrix(c_wrapper.from_numpy(predictions))
 
 mse = c_wrapper.py_mean_squared_error(y_test_c, predictions_c)
 rmse = np.sqrt(mse)
+
+y_true = y_test.flatten()
+predictions_flat = predictions.flatten()
+non_zero_indices = y_true != 0
+
+abs_percentage_errors = np.abs(
+    (y_true[non_zero_indices] - predictions_flat[non_zero_indices]) / y_true[non_zero_indices]
+)
+mape = np.mean(abs_percentage_errors) * 100 # move to C implementation
+
+print("mape", mape)
 
 c_wrapper.free_py_matrix(y_test_c)
 c_wrapper.free_py_matrix(predictions_c)
@@ -76,6 +87,8 @@ for i in range(10):
     true_value = y_test[i][0]
     pred_value = predictions[i][0]
     print(f"Sample {i+1}: True Value: {true_value:.2f}, Predicted Value: {pred_value:.2f}")
+
+
 
 plt.figure(figsize=(10, 6))
 plt.scatter(y_test, predictions, alpha=0.3)
