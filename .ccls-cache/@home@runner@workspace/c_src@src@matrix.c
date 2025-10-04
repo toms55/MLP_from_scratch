@@ -18,9 +18,10 @@ void free_matrix(double** matrix, int rows) {
 
     for (int i = 0; i < rows; ++i) {
         free(matrix[i]);
+        matrix[i] = NULL;
     }
 
-    free(matrix);
+    free(*matrix);
 }
 
 double** create_zero_matrix(int rows, int cols){
