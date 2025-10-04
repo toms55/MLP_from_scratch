@@ -1,2 +1,13 @@
 build/
 python/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.o
+.pythonlibs/
+*.egg-info/
+dist/
+.pytest_cache/
