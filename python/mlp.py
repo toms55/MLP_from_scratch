@@ -14,8 +14,8 @@ class MLP:
         self.learning_rate = learning_rate
         self.activations = []
 
-        self.weights = [] # List of C matrix pointers
-        self.biases = [] # List of C matrix pointer
+        self.weights = []
+        self.biases = []
 
         for i in range(len(self.layer_sizes) - 1):
             limit = np.sqrt(6 / (layer_sizes[i] + layer_sizes[i + 1]))
@@ -69,7 +69,7 @@ class MLP:
     def backward_pass(self, y_true: c_wrapper.Matrix, y_pred: c_wrapper.Matrix):
         if self.loss != "MSE":
             raise ValueError(f"{self.loss} has not been defined yet.")
-        
+            
         # Gradient for MSE: 2 * (y_pred - y_true) / N
         diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
         output_error = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
@@ -77,28 +77,27 @@ class MLP:
         
         num_layers = len(self.weights)
 
-        # Backpropagate through layers
         for layer_index in range(num_layers - 1, -1, -1):
             
             is_output_layer = (layer_index == num_layers - 1)
             activation_type = self.output_activation if is_output_layer else self.hidden_activation
             
+            activation_derivative = None
             if activation_type == "sigmoid":
                 activation_derivative = c_wrapper.py_sigmoid_derivative(self.activations[layer_index + 1])
             elif activation_type == "relu":
                 activation_derivative = c_wrapper.py_matrix_relu_derivative(self.activations[layer_index + 1])
             elif activation_type == "identity":
-                activation_derivative = None
+                # For identity, derivative is 1. We handle the error signal below.
                 pass
             else:
                 raise ValueError(f"Unsupported activation {activation_type} in backward_pass")
-            
+                
             # Compute error signal (delta)
             if layer_index == num_layers - 1:
                 # Output Layer: Loss_grad * Act_Derivative
                 if activation_type == "identity":
-                    # Derivative of 1: Error passes straight through
-                    error_signal = output_error 
+                    error_signal = c_wrapper.scalar_multiply_py_matrix(output_error, 1)
                 else:
                     error_signal = c_wrapper.hadamard_py_matrices(output_error, activation_derivative)
             else:
@@ -111,35 +110,46 @@ class MLP:
                     error_signal = backpropagate
                 else:
                     error_signal = c_wrapper.hadamard_py_matrices(backpropagate, activation_derivative)
-                
+                    
                 c_wrapper.free_py_matrix(backpropagate)
                 
             # Weight Gradient = Error_Signal * A_{L-1}^T
             transposed_prev = c_wrapper.transpose_py_matrix(self.activations[layer_index])
-            weight_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.multiply_py_matrices(error_signal, transposed_prev), self.learning_rate)
-            # Bias Gradient = Sum of error signal columns
-            bias_grad = c_wrapper.scalar_multiply_py_matrix(c_wrapper.sum_py_matrix_columns(error_signal), self.learning_rate)
+            
+            # Calculate gradients
+            weight_grad_temp = c_wrapper.multiply_py_matrices(error_signal, transposed_prev)
+            weight_grad = c_wrapper.scalar_multiply_py_matrix(weight_grad_temp, self.learning_rate)
+            
+            bias_grad_temp = c_wrapper.sum_py_matrix_columns(error_signal)
+            bias_grad = c_wrapper.scalar_multiply_py_matrix(bias_grad_temp, self.learning_rate)
+            
+            # Clean up temporary gradient matrices
+            c_wrapper.free_py_matrix(weight_grad_temp)
+            c_wrapper.free_py_matrix(bias_grad_temp)
             
             # W_new = W_old - Grad
             new_weights = c_wrapper.subtract_py_matrices(self.weights[layer_index], weight_grad)
             new_biases = c_wrapper.subtract_py_matrices(self.biases[layer_index], bias_grad)
 
+            # Free the old weights/biases pointers
             c_wrapper.free_py_matrix(self.weights[layer_index])
             c_wrapper.free_py_matrix(self.biases[layer_index])
 
+            # Update to new pointers
             self.weights[layer_index] = new_weights
             self.biases[layer_index] = new_biases
 
+            # Clean up temporary matrices (derivatives, transposes, gradients)
             if activation_derivative is not None:
                 c_wrapper.free_py_matrix(activation_derivative)
             c_wrapper.free_py_matrix(transposed_prev)
             c_wrapper.free_py_matrix(weight_grad)
             c_wrapper.free_py_matrix(bias_grad)
-                
-            if output_error.c_ptr != error_signal.c_ptr:
-                c_wrapper.free_py_matrix(output_error)
+              
+            # Free the error matrix from the previous layer   
+            c_wrapper.free_py_matrix(output_error)
             output_error = error_signal
-        
+
         c_wrapper.free_py_matrix(output_error)
 
     def train_model(self, X: np.ndarray, y: np.ndarray, epochs: int):
