@@ -1,5 +1,8 @@
 CC = gcc
-CFLAGS = -O2 -fPIC -Wall -Wextra -g -I./c_src/include
+
+CFLAGS = -O3 -march=native -funroll-loops -fomit-frame-pointer -flto -fPIC -I./c_src/include
+LDFLAGS = -flto -lm -lopenblas
+
 SRC = $(wildcard c_src/src/*.c)
 OBJ = $(SRC:.c=.o)
 

@@ -133,7 +133,7 @@ def benchmark_pytorch_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.n
         import torch.optim as optim
         
         print("\n" + "="*60)
-        print("BENCHMARKING PYTORCH MLP")
+        print("BENCHMARKING PYTORCH MLP (SGD)")
         print("="*60)
         
         # Define PyTorch model
@@ -152,6 +152,9 @@ def benchmark_pytorch_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.n
             
             def forward(self, x):
                 return self.layers(x)
+        
+        # Set seed for reproducibility
+        torch.manual_seed(32)
         
         # Convert to tensors
         X_train_tensor = torch.FloatTensor(X_train)
