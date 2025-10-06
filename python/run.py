@@ -6,7 +6,16 @@ from sklearn.neural_network import MLPRegressor
 from mlp import MLP
 import c_wrapper
 from typing import Tuple, Optional, Dict, List, Any
-from sklearn.metrics import r2_score
+
+def mean_absolute_percentage_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    y_true = y_true.ravel()
+    y_pred = y_pred.ravel()
+    
+    epsilon = 1e-8 
+    
+    abs_percentage_errors = np.abs((y_true - y_pred) / np.maximum(np.abs(y_true), epsilon))
+    
+    return np.mean(abs_percentage_errors) * 100
 
 def custom_train_test_split(X: np.ndarray, y: np.ndarray, test_size: float = 0.1, random_state: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if random_state is not None:
@@ -55,7 +64,7 @@ def custom_train_model_with_history(mlp: MLP, X: np.ndarray, y: np.ndarray, epoc
     print("Training Complete")
     return loss_history
 
-def benchmark_custom_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, epochs: int = 500) -> Dict[str, Any]:
+def benchmark_custom_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, epochs: int = 100) -> Dict[str, Any]:
     print("\n" + "="*60)
     print("BENCHMARKING CUSTOM MLP")
     print("="*60)
@@ -81,19 +90,19 @@ def benchmark_custom_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.nd
     c_wrapper.free_py_matrix(y_test_c)
     c_wrapper.free_py_matrix(predictions_c)
     
-    r2 = r2_score(y_test, predictions)
+    mape = mean_absolute_percentage_error(y_test, predictions)
 
     print(f"Training Time: {train_time:.4f} seconds")
     print(f"Inference Time: {infer_time:.4f} seconds")
     print(f"MSE: {mse:.4f}")
-    print(f"R-squared: {r2:.4f}")
+    print(f"MAPE: {mape:.4f}%")
 
     return {
         'name': 'Custom MLP',
         'train_time': train_time,
         'infer_time': infer_time,
         'mse': mse,
-        'r2': r2,
+        'mape': mape,
         'total_time': train_time + infer_time,
         'loss_history': loss_history
     }
@@ -122,19 +131,20 @@ def benchmark_sklearn_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.n
     infer_time = time.time() - start_infer
     
     mse = np.mean((y_test.ravel() - predictions) ** 2)
-    r2 = r2_score(y_test.ravel(), predictions)
+    
+    mape = mean_absolute_percentage_error(y_test, predictions)
     
     print(f"Training Time: {train_time:.4f} seconds")
     print(f"Inference Time: {infer_time:.4f} seconds")
     print(f"MSE: {mse:.4f}")
-    print(f"R-squared: {r2:.4f}")
+    print(f"MAPE: {mape:.4f}%")
     
     return {
         'name': 'Scikit-Learn MLP',
         'train_time': train_time,
         'infer_time': infer_time,
         'mse': mse,
-        'r2': r2,
+        'mape': mape,
         'total_time': train_time + infer_time,
         'loss_history': []
     }
@@ -149,11 +159,10 @@ def plot_benchmark_results(results: List[Dict[str, Any]]):
     train_times = [r['train_time'] for r in results]
     infer_times = [r['infer_time'] for r in results]
     mses = [r['mse'] for r in results]
-    r2s = [r['r2'] for r in results]
+    mapes = [r['mape'] for r in results]
     
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # Training Time Comparison (0, 0)
     ax1 = axes[0, 0]
     bars1 = ax1.bar(names, train_times, color=['#FF6B6B', '#4ECDC4'])
     ax1.set_ylabel('Time (seconds)', fontsize=11)
@@ -163,7 +172,6 @@ def plot_benchmark_results(results: List[Dict[str, Any]]):
         height = bar.get_height()
         ax1.text(bar.get_x() + bar.get_width()/2., height, f'{train_times[i]:.2f}s', ha='center', va='bottom', fontsize=10)
 
-    # Inference Time Comparison (0, 1)
     ax2 = axes[0, 1]
     bars2 = ax2.bar(names, infer_times, color=['#FF6B6B', '#4ECDC4'])
     ax2.set_ylabel('Time (seconds)', fontsize=11)
@@ -173,7 +181,6 @@ def plot_benchmark_results(results: List[Dict[str, Any]]):
         height = bar.get_height()
         ax2.text(bar.get_x() + bar.get_width()/2., height, f'{infer_times[i]:.4f}s', ha='center', va='bottom', fontsize=10)
 
-    # Model Performance (MSE) (1, 0)
     ax3 = axes[1, 0]
     bars3 = ax3.bar(names, mses, color=['#FF6B6B', '#4ECDC4'])
     ax3.set_ylabel('Mean Squared Error', fontsize=11)
@@ -183,15 +190,14 @@ def plot_benchmark_results(results: List[Dict[str, Any]]):
         height = bar.get_height()
         ax3.text(bar.get_x() + bar.get_width()/2., height, f'{mses[i]:.4f}', ha='center', va='bottom', fontsize=10)
 
-    # Model Performance (R-squared) (1, 1)
     ax4 = axes[1, 1]
-    bars4 = ax4.bar(names, r2s, color=['#FF6B6B', '#4ECDC4'])
-    ax4.set_ylabel('R-squared', fontsize=11)
-    ax4.set_title('Model Performance (R-squared)', fontsize=13, fontweight='bold')
+    bars4 = ax4.bar(names, mapes, color=['#FF6B6B', '#4ECDC4'])
+    ax4.set_ylabel('Mean Absolute Percentage Error (%)', fontsize=11)
+    ax4.set_title('Model Performance (MAPE)', fontsize=13, fontweight='bold')
     ax4.tick_params(axis='x', rotation=15)
     for i, bar in enumerate(bars4):
         height = bar.get_height()
-        ax4.text(bar.get_x() + bar.get_width()/2., height, f'{r2s[i]:.4f}', ha='center', va='bottom', fontsize=10)
+        ax4.text(bar.get_x() + bar.get_width()/2., height, f'{mapes[i]:.2f}%', ha='center', va='bottom', fontsize=10)
 
     plt.tight_layout()
     plt.savefig('mlp_benchmark_metrics.png', dpi=300, bbox_inches='tight')
@@ -221,10 +227,10 @@ def print_summary_table(results: List[Dict[str, Any]]):
     print("\n" + "="*95)
     print("BENCHMARK SUMMARY TABLE")
     print("="*95)
-    print(f"{'Model':<25} {'Train (s)':<15} {'Infer (s)':<15} {'MSE':<15} {'R-squared':<15} {'Total (s)':<15}")
+    print(f"{'Model':<25} {'Train (s)':<15} {'Infer (s)':<15} {'MSE':<15} {'MAPE (%)':<15} {'Total (s)':<15}")
     print("-"*95)
     for r in results:
-        print(f"{r['name']:<25} {r['train_time']:<15.4f} {r['infer_time']:<15.4f} {r['mse']:<15.4f} {r['r2']:<15.4f} {r['total_time']:<15.4f}")
+        print(f"{r['name']:<25} {r['train_time']:<15.4f} {r['infer_time']:<15.4f} {r['mse']:<15.4f} {r['mape']:<15.4f} {r['total_time']:<15.4f}")
     print("-"*95)
     if len(results) > 1:
         custom_train = results[0]['train_time']
