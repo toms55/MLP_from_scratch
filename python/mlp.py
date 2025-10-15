@@ -85,8 +85,7 @@ class MLP:
 
         # Gradient for MSE: 2 * (y_pred - y_true) / N
         diff = c_wrapper.subtract_py_matrices(y_pred, y_true)
-        output_error = c_wrapper.scalar_multiply_py_matrix(
-            diff, 2 / (y_true.cols * y_true.rows))
+        output_error = c_wrapper.scalar_multiply_py_matrix(diff, 2 / (y_true.cols * y_true.rows))
         c_wrapper.free_py_matrix(diff)
 
         num_layers = len(self.weights)

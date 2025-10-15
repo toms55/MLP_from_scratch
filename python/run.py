@@ -30,7 +30,7 @@ def custom_standard_scaler(X_train: np.ndarray, X_test: np.ndarray) -> Tuple[np.
     X_test_scaled = (X_test - mean) / std
     return X_train_scaled, X_test_scaled
 
-def benchmark_custom_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, epochs: int = 500) -> Dict:
+def benchmark_custom_mlp(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, epochs: int = 500, seed:int = 32) -> Dict:
     print("\n" + "="*60)
     print("BENCHMARKING CUSTOM MLP")
     print("="*60)
@@ -184,7 +184,9 @@ def main():
     print(f"Epochs: 500")
     epochs = 500
     results = []
-    results.append(benchmark_custom_mlp(X_train_scaled, y_train, X_test_scaled, y_test, epochs))
+    results.append(benchmark_custom_mlp(X_train_scaled, y_train, X_test_scaled, y_test, epochs, 32))
+    results.append(benchmark_custom_mlp(X_train_scaled, y_train, X_test_scaled, y_test, epochs, 41))
+    results.append(benchmark_custom_mlp(X_train_scaled, y_train, X_test_scaled, y_test, epochs, 512))
     results.append(benchmark_sklearn_mlp(X_train_scaled, y_train, X_test_scaled, y_test, epochs))
     print_summary_table(results)
     plot_benchmark_results(results)
