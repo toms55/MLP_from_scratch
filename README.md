@@ -14,7 +14,7 @@ This project aims to provide a deep understanding of the fundamental building bl
 
 ---
 
-## ⚙️ Tech Stack
+## Tech Stack
 
 * `Python` The primary language for the MLP implementation.
 * `C` Used for optimized, low-level computations (likely via Python bindings).
@@ -23,9 +23,7 @@ This project aims to provide a deep understanding of the fundamental building bl
 
 ---
 
-## 📦 Project Structure
-
-## 🛠️ Local Setup (Inferred)
+## Local Setup
 
 To get this project running locally, you will need the nix package manager.
 
