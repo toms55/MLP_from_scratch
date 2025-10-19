@@ -28,25 +28,29 @@ This project aims to provide a deep understanding of the fundamental building bl
 To get this project running locally, you will need the nix package manager.
 
 1.  **Clone the repository:**
-    ```bash
+
+```bash
     git clone git@github.com:toms55/MLP_from_scratch.git
-   ```
-2. **Install the packages**
-    ```bash
+```
+
+2.  **Install the packages:**
+```bash
     nix develop
-    ```
+```
 
 3.  **Build the C extensions:**
+    
     Run the `make all` command to compile the C source files into Python-loadable modules.
-    ```bash
+```bash
     make all
-    ```
+```
 
 4.  **Run the project/tests:**
+    
     Once compiled, run the MLP with this command:
-    ```bash
+```bash
     python3 python/run.py
-    ```
+```
+    
     Configure the MLP in run.py in the benchmark_custom_mlp function. 
-
-    Any number of hidden layers and epochs may be used. 
+    Any number of hidden layers and epochs may be used.
