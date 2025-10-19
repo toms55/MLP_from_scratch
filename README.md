@@ -43,8 +43,10 @@ To get this project running locally, you will need the nix package manager.
     ```
 
 4.  **Run the project/tests:**
-    Once compiled, you can run any included example scripts or verification tests found in the `tests/` directory.
-
+    Once compiled, run the MLP with this command:
     ```bash
     python3 python/run.py
     ```
+    Configure the MLP in run.py in the benchmark_custom_mlp function. 
+
+    Any number of hidden layers and epochs may be used. 
